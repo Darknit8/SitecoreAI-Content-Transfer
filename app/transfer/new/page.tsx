@@ -394,14 +394,15 @@ export default function NewTransferPage() {
                   </div>
                 </div>
 
-                {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && (
+                {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production") && (
                   <div className="flex gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-250/20 text-amber-800 text-xs shadow-inner">
                     <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
                     <div className="space-y-0.5">
-                      <span className="font-bold block text-amber-900">High-Resource / Destructive Operation</span>
+                      <span className="font-bold block text-amber-900">High-Risk / Destructive Operation</span>
                       <span>
                         {scope === "ItemAndDescendants" && "• Migrating an entire item tree (including all descendants) is resource-intensive. "}
                         {(mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && "• Overriding existing items/trees will permanently overwrite destination content. "}
+                        {(sourceEnv === "Production" || destEnv === "Production") && "• One or more selected environments is Production. Admin authorization is required. "}
                         Please ensure you have backups of your destination database before proceeding.
                       </span>
                     </div>
@@ -426,21 +427,21 @@ export default function NewTransferPage() {
             ) : (
               <>
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-xl ${(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
-                      ? "bg-rose-50 text-rose-600"
-                      : "bg-indigo-50 text-indigo-600"
+                  <div className={`p-3 rounded-xl ${(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
+                    ? "bg-rose-50 text-rose-600"
+                    : "bg-indigo-50 text-indigo-600"
                     }`}>
                     <Settings className="w-6 h-6 animate-pulse" />
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-lg font-bold text-slate-900">
-                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
                         ? "Authorize Destination Changes"
                         : "Authorize Content Migration"}
                     </h3>
                     <p className="text-sm text-slate-500">
-                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
-                        ? "An administrator password is required to execute this high-resource or destructive migration pipeline."
+                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
+                        ? "An administrator password is required to execute this high-risk or Production environment migration."
                         : "A standard migration password is required to execute this content migration pipeline."}
                     </p>
                   </div>
@@ -455,7 +456,7 @@ export default function NewTransferPage() {
 
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-slate-500 uppercase">
-                    {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                    {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
                       ? "Admin Authorization Password"
                       : "Standard Authorization Password"}
                   </label>

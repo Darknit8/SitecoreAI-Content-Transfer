@@ -49,7 +49,10 @@ export async function POST(req: NextRequest) {
       tree.mergeStrategy === "OverrideExistingTree"
     );
 
-    if (hasExpensive) {
+    const isProductionEnv = sourceEnv === "Production" || destEnv === "Production";
+    const requiresAdmin = hasExpensive || isProductionEnv;
+
+    if (requiresAdmin) {
       const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
       if (authPassword !== adminPassword) {
         return NextResponse.json(

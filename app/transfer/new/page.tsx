@@ -19,6 +19,9 @@ export default function NewTransferPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [authPassword, setAuthPassword] = useState("");
+  const [confirmStep, setConfirmStep] = useState(1);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -37,6 +40,9 @@ export default function NewTransferPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setModalError(null);
+    setAuthPassword("");
+    setConfirmStep(1);
 
     const paths = itemPathInput
       .split(",")
@@ -52,8 +58,14 @@ export default function NewTransferPage() {
   };
 
   const executeTransfer = async () => {
-    setShowConfirmModal(false);
+    if (confirmStep === 1) {
+      setConfirmStep(2);
+      setModalError(null);
+      return;
+    }
+
     setLoading(true);
+    setModalError(null);
     setError(null);
 
     const paths = itemPathInput
@@ -74,6 +86,7 @@ export default function NewTransferPage() {
             mergeStrategy,
           })),
           database,
+          authPassword,
         }),
       });
 
@@ -82,9 +95,10 @@ export default function NewTransferPage() {
         throw new Error(data.error || "Failed to start transfer");
       }
 
+      setShowConfirmModal(false);
       router.push(`/transfer/${data.transferId}`);
     } catch (err) {
-      setError((err as Error).message);
+      setModalError((err as Error).message);
       setLoading(false);
     }
   };
@@ -218,92 +232,165 @@ export default function NewTransferPage() {
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                <ArrowRightLeft className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-lg font-bold text-slate-900">Confirm Content Migration</h3>
-                <p className="text-sm text-slate-500">
-                  Please review the migration configuration before starting the content migration pipeline.
-                </p>
-              </div>
-            </div>
+            {confirmStep === 1 ? (
+              <>
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <ArrowRightLeft className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-slate-900">Confirm Content Migration</h3>
+                    <p className="text-sm text-slate-500">
+                      Please review the migration configuration before starting the content migration pipeline.
+                    </p>
+                  </div>
+                </div>
 
-            <div className="bg-slate-50 rounded-xl border border-slate-200/50 p-4 space-y-4 text-sm text-slate-700">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="block text-xs font-semibold text-slate-400 uppercase">Source Env</span>
-                  <span className="block font-medium text-slate-800 break-all">{source?.host}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-semibold text-slate-400 uppercase">Destination Env</span>
-                  <span className="block font-medium text-slate-800 break-all">{destination?.host}</span>
-                </div>
-              </div>
+                <div className="bg-slate-50 rounded-xl border border-slate-200/50 p-4 space-y-4 text-sm text-slate-700">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-xs font-semibold text-slate-400 uppercase">Source Env</span>
+                      <span className="block font-medium text-slate-800 break-all">{source?.host}</span>
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-slate-400 uppercase">Destination Env</span>
+                      <span className="block font-medium text-slate-800 break-all">{destination?.host}</span>
+                    </div>
+                  </div>
 
-              <div className="border-t border-slate-200/50 pt-3">
-                <span className="block text-xs font-semibold text-slate-400 uppercase">Sitecore Item Paths</span>
-                <div className="max-h-24 overflow-y-auto space-y-1 mt-1">
-                  {itemPathInput.split(",").map((path, idx) => (
-                    <span key={idx} className="block font-mono text-xs text-slate-700 bg-white border border-slate-200/40 px-2 py-1 rounded">
-                      {path.trim()}
-                    </span>
-                  ))}
-                </div>
-              </div>
+                  <div className="border-t border-slate-200/50 pt-3">
+                    <span className="block text-xs font-semibold text-slate-400 uppercase">Sitecore Item Paths</span>
+                    <div className="max-h-24 overflow-y-auto space-y-1 mt-1">
+                      {itemPathInput.split(",").map((path, idx) => (
+                        <span key={idx} className="block font-mono text-xs text-slate-700 bg-white border border-slate-200/40 px-2 py-1 rounded">
+                          {path.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-3 gap-4 border-t border-slate-200/50 pt-3">
-                <div>
-                  <span className="block text-xs font-semibold text-slate-400 uppercase">Scope</span>
-                  <span className={`block font-medium ${scope === "ItemAndDescendants" ? "text-rose-600 font-bold" : "text-slate-800"}`}>
-                    {scope === "SingleItem" ? "Single Item" : "Item & Descendants"}
-                  </span>
+                  <div className="grid grid-cols-3 gap-4 border-t border-slate-200/50 pt-3">
+                    <div>
+                      <span className="block text-xs font-semibold text-slate-400 uppercase">Scope</span>
+                      <span className={`block font-medium ${scope === "ItemAndDescendants" ? "text-rose-600 font-bold" : "text-slate-800"}`}>
+                        {scope === "SingleItem" ? "Single Item" : "Item & Descendants"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-slate-400 uppercase">Conflict Strategy</span>
+                      <span className={`block font-medium ${mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" ? "text-rose-600 font-bold" : "text-slate-800"}`}>
+                        {mergeStrategy === "OverrideExistingItem" && "Override Existing Item"}
+                        {mergeStrategy === "KeepExistingItem" && "Keep Existing Item"}
+                        {mergeStrategy === "LatestWin" && "Latest Modified Wins"}
+                        {mergeStrategy === "OverrideExistingTree" && "Override Existing Tree"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-slate-400 uppercase">Database</span>
+                      <span className="block font-medium text-slate-800">{database}</span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="block text-xs font-semibold text-slate-400 uppercase">Conflict Strategy</span>
-                  <span className={`block font-medium ${mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" ? "text-rose-600 font-bold" : "text-slate-800"}`}>
-                    {mergeStrategy === "OverrideExistingItem" && "Override Existing Item"}
-                    {mergeStrategy === "KeepExistingItem" && "Keep Existing Item"}
-                    {mergeStrategy === "LatestWin" && "Latest Modified Wins"}
-                    {mergeStrategy === "OverrideExistingTree" && "Override Existing Tree"}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-xs font-semibold text-slate-400 uppercase">Database</span>
-                  <span className="block font-medium text-slate-800">{database}</span>
-                </div>
-              </div>
-            </div>
 
-            {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && (
-              <div className="flex gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-250/20 text-amber-800 text-xs shadow-inner">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                <div className="space-y-0.5">
-                  <span className="font-bold block text-amber-900">High-Resource / Destructive Operation</span>
-                  <span>
-                    {scope === "ItemAndDescendants" && "• Migrating an entire item tree (including all descendants) is resource-intensive. "}
-                    {(mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && "• Overriding existing items/trees will permanently overwrite destination content. "}
-                    Please ensure you have backups of your destination database before proceeding.
-                  </span>
-                </div>
-              </div>
-            )}
+                {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && (
+                  <div className="flex gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-250/20 text-amber-800 text-xs shadow-inner">
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block text-amber-900">High-Resource / Destructive Operation</span>
+                      <span>
+                        {scope === "ItemAndDescendants" && "• Migrating an entire item tree (including all descendants) is resource-intensive. "}
+                        {(mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && "• Overriding existing items/trees will permanently overwrite destination content. "}
+                        Please ensure you have backups of your destination database before proceeding.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={executeTransfer}
-                className="px-5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-95 text-white transition-all shadow-sm shadow-indigo-500/10"
-              >
-                Start Pipeline
-              </button>
-            </div>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowConfirmModal(false)}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeTransfer}
+                    className="px-5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-95 text-white transition-all shadow-sm shadow-indigo-500/10"
+                  >
+                    Proceed to Authorize
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-xl ${
+                    (scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                      ? "bg-rose-50 text-rose-600"
+                      : "bg-indigo-50 text-indigo-600"
+                  }`}>
+                    <Settings className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-slate-900">
+                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                        ? "Authorize Destination Changes"
+                        : "Authorize Content Migration"}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                        ? "An administrator password is required to execute this high-resource or destructive migration pipeline."
+                        : "A standard migration password is required to execute this content migration pipeline."}
+                    </p>
+                  </div>
+                </div>
+
+                {modalError && (
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {modalError}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase">
+                    {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                      ? "Admin Authorization Password"
+                      : "Standard Authorization Password"}
+                  </label>
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="Enter security password"
+                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none transition-all shadow-sm"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3 justify-end pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      setConfirmStep(1);
+                      setModalError(null);
+                    }}
+                    disabled={loading}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={executeTransfer}
+                    disabled={loading || !authPassword}
+                    className="px-5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-95 text-white disabled:opacity-50 transition-all shadow-sm shadow-indigo-500/10"
+                  >
+                    {loading ? "Verifying..." : "Confirm & Start"}
+                  </button>
+                </div>
+              </>
+            )
+          }
           </div>
         </div>
       )}

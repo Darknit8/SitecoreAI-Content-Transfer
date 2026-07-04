@@ -19,7 +19,7 @@ function loadConfig() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { dataTrees, database } = body;
+    const { dataTrees, database, authPassword } = body;
 
     const config = loadConfig();
     const source = body.source || config.source;
@@ -33,6 +33,30 @@ export async function POST(req: NextRequest) {
         { error: "Missing configuration credentials. Please save environment settings first." },
         { status: 400 }
       );
+    }
+
+    const hasExpensive = dataTrees?.some((tree: any) =>
+      tree.scope === "ItemAndDescendants" ||
+      tree.mergeStrategy === "OverrideExistingItem" ||
+      tree.mergeStrategy === "OverrideExistingTree"
+    );
+
+    if (hasExpensive) {
+      const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
+      if (authPassword !== adminPassword) {
+        return NextResponse.json(
+          { error: "Invalid authorization password. Access denied for high-risk operations." },
+          { status: 403 }
+        );
+      }
+    } else {
+      const standardPassword = process.env.SCT_STANDARD_PASSWORD || "Standard123!";
+      if (authPassword !== standardPassword) {
+        return NextResponse.json(
+          { error: "Invalid authorization password. Access denied." },
+          { status: 403 }
+        );
+      }
     }
 
     const transferId = crypto.randomUUID();

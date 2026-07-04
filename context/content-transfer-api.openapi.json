@@ -1,0 +1,231 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Content Transfer API",
+    "description": "The Content Transfer REST API allows SitecoreAI administrators to initiate, monitor, and finalize content transfer operations for migrating content data from one SitecoreAI environment (the *source*) to another (the *destination*). This enables efficient transfer of data between environments using chunked data streaming with encryption and compression support.\n\nEach transfer operation includes at least one set of chunked data, where each chunk set represents a single data tree that was nominated for transfer. When an operation is complete, each of its chunk sets will be represented by a `.raif` file in the destination environment. To finish integrating the transferred data, use the separate [Item Transfer API](https://api-docs.sitecore.com/sai/item-transfer) to have the destination database consume the `.raif` files.\n\nThe key stages of a content transfer operation are as follows:\n- **Create the transfer operation** - specify the content you want to transfer and apply optional configuration parameters, creating the initial operation. Depending on how much data is being transferred, this will create one or more sets of chunked data.\n- **Monitor the operation** - view key information about an existing transfer operation, including its current status and metadata for each of its chunk sets (such as the ID and how many chunks it contains).\n- **Transfer data chunks** - for each chunk of data in a particular chunk set, copy the chunk data from the source environment to a corresponding location in the destination environment. This stage involves calling two endpoints as a pair.\n- **Complete a chunk set transfer** - when all chunks in a particular set have been transferred, mark that set as complete and generate a `.raif` file in the destination environment.\n- **Cleanup** - when all chunk sets in a transfer operation are complete, delete the transfer operation from the source environment and clean up all associated resources.\n\n# Base URL\nIn the base URL, replace `{host}` with your environment host name. Find the value in SitecoreAI Deploy > **Projects** > your project > **Authoring environments** > your environment > **Details** > **Environment host name**. \n\n# Authorization\nTo authorize your requests, use environment automation client credentials and generate a JSON Web Token (JWT).\n\nNote: To create client credentials, you must be an [Organization Admin or Organization Owner](https://doc.sitecore.com/portal/en/developers/sitecore-cloud-portal/roles.html).\n\n## Create an automation client\n1. In the Sitecore Cloud Portal, open SitecoreAI Deploy.\n2. Click **Credentials** > **Environment** > **Create credentials** > **Automation**.\n3. Fill out the automation client details, then click **Create**.\n4. Copy the client ID and the client secret because you won't be able to view them again in SitecoreAI Deploy. You'll use them to request a JWT.\n\n## Request a JWT\n\nRun the following cURL command to request a JWT. Replace the placeholder values with your client ID and client secret.\n```curl\n  curl -X POST 'https://auth.sitecorecloud.io/oauth/token' \\\n  --header 'Content-Type: application/x-www-form-urlencoded' \\\n  --data-urlencode 'client_id={YOUR_CLIENT_ID}' \\\n  --data-urlencode 'client_secret={YOUR_CLIENT_SECRET}' \\\n  --data-urlencode 'grant_type=client_credentials' \\\n  --data-urlencode 'audience=https://api.sitecorecloud.io'\n```\n\nThe JWT expires in 24 hours. If your requests unexpectedly return a response with status `401 Unauthorized`, request a new JWT by repeating this `POST` request.\n\nWe recommend that you cache the JWT for 24 hours to avoid repeating this `POST` request while the JWT is still valid.\n\n## Include the JWT in the request header\n\nYou can now start making REST API requests. You must include the JWT in the request header of every request. For example:\n```curl\n  curl -X GET '{YOUR_BASE_URL}/...' \\\n  -H 'Authorization: Bearer {YOUR_JWT}' \\\n  -H 'Accept: application/json'\n```\n",
+    "version": "v1",
+    "x-metadata": {
+      "product": "SitecoreAI"
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://{host}",
+      "variables": {
+        "host": {
+          "default": "cm.your-tenant.sitecorecloud.io",
+          "description": "The environment host name"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "Content transfer API",
+      "description": "APIs for content transfer operations."
+    }
+  ],
+  "paths": {
+    "/sitecore/api/content/transfer/v1/transfers": {
+      "post": {
+        "tags": ["Content transfer API"],
+        "summary": "Create a content transfer operation",
+        "description": "Creates a new operation to transfer one or more specified items from your source environment. You must specify a unique ID for the transfer, which you'll use later in the transfer workflow.\n\n**Warning:** If you reuse a previous transfer ID, the transfer operation associated with that ID will be overwritten (if it was not previously deleted using this API).\n\nBy default, a transfer will only include single items based on the paths you specify, and it will replace any duplicate items found in the destination environment. You can override these settings to include descendants or choose a different merge strategy as needed.\n",
+        "operationId": "ContentTransfer_CreateContentTransfer",
+        "requestBody": {
+          "description": "The request body containing transfer configuration and a unique transfer ID.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContentTransferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": { "description": "Content transfer creation was initiated successfully" },
+          "400": { "description": "Invalid request data or validation failed" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/sitecore/api/content/transfer/v1/transfers/{transferId}/status": {
+      "get": {
+        "tags": ["Content transfer API"],
+        "summary": "Retrieve details of a content transfer operation",
+        "description": "Retrieves information about a specific operation, including its current status and a list of the chunk sets included.\n\nFor each chunk set in the specified operation, the response contains:\n- The chunk set's unique ID.\n- How many chunks are in the set.\n- How many items are represented by the chunk set.\n",
+        "operationId": "ContentTransfer_GetContentTransferStatus",
+        "parameters": [
+          {
+            "name": "transferId",
+            "in": "path",
+            "description": "The unique identifier of the content transfer operation.",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns the transfer status successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Transfer with the specified ID was not found" }
+        }
+      }
+    },
+    "/sitecore/api/content/transfer/v1/transfers/{transferId}/chunksets/{chunksetId}/chunks/{chunkId}": {
+      "get": {
+        "tags": ["Content transfer API"],
+        "summary": "Retrieve a specific chunk of transfer data",
+        "description": "Fetches the data for a single chunk. The response body contains a binary stream of serialized item data. Media data (IsMedia=true) is compressed. Content data (IsMedia=false) is encrypted. Metadata exposed via Content-Disposition header: ItemsProcessed, ItemsSkipped, IsMedia.",
+        "operationId": "ContentTransfer_GetChunkAsync",
+        "parameters": [
+          { "name": "transferId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "chunksetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "chunkId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "responses": {
+          "200": { "description": "Returns the chunk data as a binary stream" },
+          "400": { "description": "Invalid chunk ID, chunk set ID, or no processed items" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Chunk set or chunk not found" }
+        }
+      },
+      "put": {
+        "tags": ["Content transfer API"],
+        "summary": "Save a data chunk to the destination environment",
+        "description": "Copies the chunk to the destination environment. The request body MUST be the raw binary stream obtained from the GET endpoint. Do not alter, wrap, re-encode or chunk the stream; forward it exactly as received.",
+        "operationId": "ContentTransfer_SaveChunkAsync",
+        "parameters": [
+          { "name": "isMedia", "in": "query", "required": true, "schema": { "type": "boolean" } },
+          { "name": "transferId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "chunksetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "chunkId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "responses": {
+          "201": { "description": "Chunk was saved successfully" },
+          "400": { "description": "Invalid request data or chunk information" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "500": { "description": "Internal server error during chunk processing" }
+        }
+      }
+    },
+    "/sitecore/api/content/transfer/v1/transfers/{transferId}/chunksets/{chunksetId}/complete": {
+      "post": {
+        "tags": ["Content transfer API"],
+        "summary": "Complete a chunk set",
+        "description": "Generates a .raif file containing the chunk set data on the destination environment. To incorporate the .raif file into the destination database, use the Item Transfer API.",
+        "operationId": "ContentTransfer_CompleteChunkSetAsync",
+        "parameters": [
+          { "name": "transferId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "chunksetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Chunk set completed successfully, returns the transfer filename" },
+          "400": { "description": "Invalid chunk set or transfer information" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "500": { "description": "Internal server error during chunk set completion" }
+        }
+      }
+    },
+    "/sitecore/api/content/transfer/v1/transfers/{transferId}": {
+      "delete": {
+        "tags": ["Content transfer API"],
+        "summary": "Delete a content transfer and clean up associated resources",
+        "description": "Deletes the operation and all associated resources that are no longer required.",
+        "operationId": "ContentTransfer_DeleteContentTransfer",
+        "parameters": [
+          { "name": "transferId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "202": { "description": "Content transfer was deleted successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Transfer with the specified ID was not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateContentTransferRequest": {
+        "type": "object",
+        "properties": {
+          "Configuration": { "$ref": "#/components/schemas/TransferConfiguration" },
+          "TransferId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A UUID for the transfer.",
+            "example": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        "example": {
+          "Configuration": {
+            "DataTrees": [
+              { "ItemPath": "/sitecore/content/Home", "Scope": "1", "MergeStrategy": "1" },
+              { "ItemPath": "/sitecore/media library/Images", "Scope": "0", "MergeStrategy": "2" }
+            ],
+            "Database": "master"
+          },
+          "TransferId": "12345678-1234-1234-1234-123456789abc"
+        }
+      },
+      "TransferConfiguration": {
+        "type": "object",
+        "properties": {
+          "DataTrees": {
+            "type": "array",
+            "description": "One or more objects representing the content items you want to transfer.",
+            "items": { "$ref": "#/components/schemas/DataTree" }
+          },
+          "Database": { "type": "string", "readOnly": true }
+        }
+      },
+      "DataTree": {
+        "type": "object",
+        "properties": {
+          "ItemPath": { "type": "string", "description": "The path of the content item to transfer.", "example": "/sitecore/content/Home/MyItem" },
+          "Scope": { "type": "string", "enum": ["SingleItem", "ItemAndDescendants"], "default": "SingleItem" },
+          "MergeStrategy": { "type": "string", "enum": ["OverrideExistingItem", "KeepExistingItem", "LatestWin", "OverrideExistingTree"], "default": "OverrideExistingItem" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": { "Error": { "type": "string" } }
+      },
+      "ContentTransferCreationStatusResponse": {
+        "type": "object",
+        "properties": {
+          "State": { "type": "string", "enum": ["Running", "Completed", "Failed", "NotFound"], "readOnly": true },
+          "ChunkSetsMetadata": { "type": "array", "readOnly": true, "items": { "$ref": "#/components/schemas/ChunkSetMetadata" } }
+        }
+      },
+      "ChunkSetMetadata": {
+        "type": "object",
+        "properties": {
+          "ChunkSetId": { "type": "string", "format": "uuid" },
+          "ChunkCount": { "type": "integer", "format": "int32" },
+          "TotalItemCount": { "type": "integer", "format": "int32" }
+        }
+      },
+      "ChunkSetCompleteResponse": {
+        "type": "object",
+        "properties": {
+          "ContentTransferFileName": { "type": "string", "description": "The name of the .raif file.", "readOnly": true }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    }
+  }
+}

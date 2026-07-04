@@ -38,3 +38,6 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Agent configs and rules
+/.agents/

@@ -1,31 +1,94 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowRightLeft, History, Play, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import React from "react";
+import {
+  ArrowRightLeft,
+  Database,
+  History,
+  Settings,
+  BookOpen,
+  ExternalLink,
+  Zap,
+  Shield,
+  Layers,
+  GitBranch,
+  Play,
+  FileCode2,
+} from "lucide-react";
+
+const apiLinks = [
+  {
+    label: "Content Transfer API — Overview",
+    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/sitecore-content-transfer.html",
+    description: "Official Sitecore XP content transfer documentation",
+  },
+  {
+    label: "Item Transfer REST API Reference",
+    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/the-item-transfer-api.html",
+    description: "Endpoints for exporting & ingesting items via REST",
+  },
+  {
+    label: "Chunk Streaming Protocol",
+    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/transferring-content-with-the-sitecore-content-transfer-module.html",
+    description: "How chunked .raif packages are built and consumed",
+  },
+  {
+    label: "Identity Server — OAuth2 / Client Credentials",
+    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/configure-client-credentials-flow-for-sitecore-services-client.html",
+    description: "Configuring Client ID & Client Secret for API access",
+  },
+  {
+    label: "Transfer Scope & Conflict Strategy",
+    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/content-transfer-command-line-tool.html",
+    description: "SingleItem, ItemAndDescendants, conflict resolution modes",
+  },
+];
+
+const navCards = [
+  {
+    href: "/transfer/new",
+    label: "New Migration",
+    icon: ArrowRightLeft,
+    color: "text-indigo-500",
+    bg: "bg-indigo-50",
+    description: "Initiate a new chunk-stream content migration pipeline between environments.",
+  },
+  {
+    href: "/sources",
+    label: "Blob & File Sources",
+    icon: Database,
+    color: "text-purple-500",
+    bg: "bg-purple-50",
+    description: "Browse .raif packages in Azure Blob or CMS filesystem and trigger ingestion.",
+  },
+  {
+    href: "/history",
+    label: "Transfer History",
+    icon: History,
+    color: "text-cyan-500",
+    bg: "bg-cyan-50",
+    description: "Browse the destination Item Transfer API ingestion log and status records.",
+  },
+  {
+    href: "/settings",
+    label: "Environment Settings",
+    icon: Settings,
+    color: "text-slate-500",
+    bg: "bg-slate-50",
+    description: "Verify configured credential status for Dev, QA, UAT and Production environments.",
+  },
+];
+
+const pipelineSteps = [
+  { step: "1", label: "Export", detail: "Source CM fetches items and builds chunked .raif archive via the Content Transfer API." },
+  { step: "2", label: "Upload", detail: "The orchestrator uploads the .raif to destination Azure Blob storage or CMS filesystem." },
+  { step: "3", label: "Consume", detail: "The destination Item Transfer API ingests the .raif package asynchronously into SQL." },
+  { step: "4", label: "Monitor", detail: "Poll ingestion status until Finished or error. Results visible in Transfer History." },
+];
 
 export default function DashboardOverview() {
-  const router = useRouter();
-  const [runs, setRuns] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/transfer")
-      .then(res => res.json())
-      .then(data => {
-        setRuns(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const totalRuns = runs.length;
-  const activeRuns = runs.filter(r => r.state === "running").length;
-  const completedRuns = runs.filter(r => r.state === "completed").length;
-  const failedRuns = runs.filter(r => r.state === "failed").length;
-
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -33,10 +96,9 @@ export default function DashboardOverview() {
             Migration Command Center
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            Orchestrate and monitor SitecoreAI environment content synchronization pipelines.
+            SitecoreAI Content Transfer — chunked data streaming between Sitecore environments.
           </p>
         </div>
-
         <a
           href="/transfer/new"
           className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-bold text-sm px-5 py-2.5 rounded-lg transition-all shadow-md shadow-indigo-500/20"
@@ -46,119 +108,105 @@ export default function DashboardOverview() {
         </a>
       </div>
 
-      {/* Stats Cards: Color-coded glassmorphic widgets */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <div className="glow-card p-6 rounded-xl space-y-2 border-l-4 border-l-indigo-500 bg-white/70">
-          <span className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Total Runs</span>
-          <div className="text-3xl font-extrabold text-slate-800">{totalRuns}</div>
+      {/* About this implementation */}
+      <div className="glow-card p-7 rounded-xl bg-white/80 space-y-5">
+        <div className="flex items-center gap-3 border-b border-slate-200/50 pb-4">
+          <div className="p-2 bg-indigo-50 rounded-lg">
+            <FileCode2 className="w-5 h-5 text-indigo-500" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-800">About This Implementation</h2>
         </div>
-        <div className="glow-card p-6 rounded-xl space-y-2 border-l-4 border-l-amber-500 bg-white/70">
-          <span className="text-xs text-amber-600 font-bold uppercase tracking-wider">Active Runs</span>
-          <div className="text-3xl font-extrabold text-amber-700">{activeRuns}</div>
+
+        <p className="text-sm text-slate-600 leading-relaxed">
+          This console is a <strong className="text-slate-800">Next.js 16 web application</strong> built to orchestrate Sitecore content migrations between multiple environments (Dev, QA, UAT, Production) using the{" "}
+          <strong className="text-slate-800">Sitecore Content Transfer API</strong>. It manages the full end-to-end pipeline — from exporting chunked <code className="bg-slate-100 px-1 py-0.5 rounded text-indigo-700 text-xs font-mono">.raif</code> packages on the source, uploading them to the destination, and triggering asynchronous ingestion via the Item Transfer REST API.
+        </p>
+
+        {/* Feature Pills */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { icon: Zap, label: "Chunk-stream pipeline", color: "text-indigo-600 bg-indigo-50 border-indigo-200/50" },
+            { icon: Shield, label: "Auth-gated high-risk ops", color: "text-rose-600 bg-rose-50 border-rose-200/50" },
+            { icon: Layers, label: "Multi-environment support", color: "text-purple-600 bg-purple-50 border-purple-200/50" },
+            { icon: GitBranch, label: "Conflict strategy control", color: "text-emerald-600 bg-emerald-50 border-emerald-200/50" },
+          ].map(({ icon: Icon, label, color }) => (
+            <span key={label} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${color}`}>
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </span>
+          ))}
         </div>
-        <div className="glow-card p-6 rounded-xl space-y-2 border-l-4 border-l-emerald-500 bg-white/70">
-          <span className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Successful</span>
-          <div className="text-3xl font-extrabold text-emerald-700">{completedRuns}</div>
-        </div>
-        <div className="glow-card p-6 rounded-xl space-y-2 border-l-4 border-l-rose-500 bg-white/70">
-          <span className="text-xs text-rose-600 font-bold uppercase tracking-wider">Failed</span>
-          <div className="text-3xl font-extrabold text-rose-700">{failedRuns}</div>
+
+        {/* Pipeline Steps */}
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Migration Pipeline Flow</h3>
+          <div className="grid sm:grid-cols-4 gap-3">
+            {pipelineSteps.map(({ step, label, detail }) => (
+              <div key={step} className="relative p-3.5 rounded-xl bg-gradient-to-br from-slate-50 to-indigo-50/30 border border-slate-200/50 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">{step}</span>
+                  <span className="text-sm font-bold text-slate-700">{label}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">{detail}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid md:grid-cols-3 gap-8">
-        {/* Active/Recent Pipelines */}
-        <div className="glow-card p-6 rounded-xl md:col-span-2 space-y-6 bg-white/80">
-          <div className="flex justify-between items-center border-b border-slate-200/50 pb-4">
-            <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
-              <ArrowRightLeft className="w-5 h-5 text-indigo-500" />
-              Migration Pipelines
-            </h2>
-            <button
-              onClick={() => {
-                setLoading(true);
-                fetch("/api/transfer")
-                  .then(res => res.json())
-                  .then(data => {
-                    setRuns(data);
-                    setLoading(false);
-                  });
-              }}
-              className="text-slate-400 hover:text-slate-650 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4 animate-spin-hover" />
-            </button>
+      {/* Two-col: Nav shortcuts + Quick Reference */}
+      <div className="grid md:grid-cols-2 gap-8">
+        {/* Navigation Shortcuts */}
+        <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
+          <div className="flex items-center gap-3 border-b border-slate-200/50 pb-4">
+            <div className="p-2 bg-purple-50 rounded-lg">
+              <ArrowRightLeft className="w-5 h-5 text-purple-500" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800">Navigate</h2>
           </div>
-
-          {loading ? (
-            <div className="py-12 text-center text-slate-400 text-sm">Loading pipelines...</div>
-          ) : runs.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-sm space-y-4">
-              <p>No migration pipelines found in memory.</p>
+          <div className="space-y-3">
+            {navCards.map(({ href, label, icon: Icon, color, bg, description }) => (
               <a
-                href="/transfer/new"
-                className="inline-flex items-center gap-1.5 text-indigo-500 hover:underline text-xs font-semibold"
+                key={href}
+                href={href}
+                className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200/50 hover:border-indigo-200 hover:bg-white transition-all hover:shadow-sm group"
               >
-                Create one now ➜
-              </a>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {runs.map((run) => (
-                <div
-                  key={run.id}
-                  onClick={() => router.push(`/transfer/${run.id}`)}
-                  className="flex items-center justify-between p-4 rounded-lg bg-white/50 border border-slate-200/40 hover:border-indigo-200 cursor-pointer hover:bg-white transition-all hover:shadow-sm"
-                >
-                  <div className="space-y-1">
-                    <span className="block text-xs font-semibold text-slate-500">ID: {run.id.substring(0, 18)}...</span>
-                    <span className="block text-xs text-slate-400">Started: {new Date(run.startedAt).toLocaleString()}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {run.state === "running" && (
-                      <span className="flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200/50 px-2.5 py-1 rounded-full animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
-                        Running
-                      </span>
-                    )}
-                    {run.state === "completed" && (
-                      <span className="flex items-center gap-1 text-xs text-emerald-700 font-semibold bg-emerald-55 border border-emerald-200/50 px-2.5 py-1 rounded-full">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        Completed
-                      </span>
-                    )}
-                    {run.state === "failed" && (
-                      <span className="flex items-center gap-1 text-xs text-rose-700 font-semibold bg-rose-55 border border-rose-200/50 px-2.5 py-1 rounded-full">
-                        <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                        Failed
-                      </span>
-                    )}
-                  </div>
+                <div className={`p-2 rounded-lg ${bg} flex-shrink-0`}>
+                  <Icon className={`w-4 h-4 ${color}`} />
                 </div>
-              ))}
-            </div>
-          )}
+                <div>
+                  <span className="block text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{label}</span>
+                  <span className="block text-[11px] text-slate-400 mt-0.5 leading-snug">{description}</span>
+                </div>
+              </a>
+            ))}
+          </div>
         </div>
 
-        {/* Quick info panel */}
-        <div className="glow-card p-6 rounded-xl space-y-6 bg-white/80">
-          <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200/50 pb-4 text-slate-800">
-            <History className="w-5 h-5 text-indigo-500" />
-            Quick Reference
-          </h2>
-          <div className="space-y-4 text-xs text-slate-500 leading-relaxed">
-            <p>
-              Content transfer uses **chunked data streaming**. Content chunks are streamed directly from the source to destination environment to build `.raif` files.
-            </p>
-            <p>
-              The destination **Item Transfer API** then asynchronously ingests `.raif` packages into the SQL database.
-            </p>
-            <div className="p-3 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-slate-200/60 space-y-2">
-              <span className="block font-semibold uppercase text-indigo-700">File Ingestion status</span>
-              <p className="text-slate-500">Verify blob packages and manual ingestion status in the **Blob & File Sources** tab.</p>
+        {/* Quick Reference & API Links */}
+        <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
+          <div className="flex items-center gap-3 border-b border-slate-200/50 pb-4">
+            <div className="p-2 bg-cyan-50 rounded-lg">
+              <BookOpen className="w-5 h-5 text-cyan-500" />
             </div>
+            <h2 className="text-lg font-bold text-slate-800">Quick Reference</h2>
+          </div>
+          <div className="space-y-2">
+            {apiLinks.map(({ label, href, description }) => (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-200/50 hover:border-cyan-200 hover:bg-cyan-50/30 transition-all group"
+              >
+                <div>
+                  <span className="block text-xs font-bold text-slate-700 group-hover:text-cyan-700 transition-colors leading-snug">{label}</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5 leading-snug">{description}</span>
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-cyan-500 transition-colors flex-shrink-0 mt-0.5" />
+              </a>
+            ))}
           </div>
         </div>
       </div>

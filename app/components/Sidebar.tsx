@@ -56,11 +56,15 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer Status */}
-      <div className="p-4 border-t border-slate-200/50 bg-white/20">
+      <div className="p-4 border-t border-slate-200/50 bg-white/20 space-y-2">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           Orchestrator Ready
         </div>
+        <p className="text-[10px] text-slate-400 leading-snug">
+          Developed by{" "}
+          <span className="font-semibold text-slate-500">Nitesh Kumar</span>
+        </p>
       </div>
     </aside>
   );

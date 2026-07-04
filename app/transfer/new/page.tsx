@@ -18,6 +18,7 @@ export default function NewTransferPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -33,10 +34,9 @@ export default function NewTransferPage() {
       .catch(() => setConfigLoaded(true));
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
     const paths = itemPathInput
       .split(",")
@@ -45,9 +45,21 @@ export default function NewTransferPage() {
 
     if (paths.length === 0) {
       setError("Please specify at least one valid Sitecore item path.");
-      setLoading(false);
       return;
     }
+
+    setShowConfirmModal(true);
+  };
+
+  const executeTransfer = async () => {
+    setShowConfirmModal(false);
+    setLoading(true);
+    setError(null);
+
+    const paths = itemPathInput
+      .split(",")
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
 
     try {
       const res = await fetch("/api/transfer", {
@@ -142,7 +154,7 @@ export default function NewTransferPage() {
             type="text"
             value={itemPathInput}
             onChange={e => setItemPathInput(e.target.value)}
-            placeholder="e.g. /sitecore/content/Home, /sitecore/media library/Files"
+            placeholder="e.g. /sitecore/content/Home, /sitecore/media library/Images"
             className="w-full bg-white/50 border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:bg-white transition-all shadow-inner"
             required
           />
@@ -202,6 +214,99 @@ export default function NewTransferPage() {
           </button>
         </div>
       </form>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                <ArrowRightLeft className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900">Confirm Content Migration</h3>
+                <p className="text-sm text-slate-500">
+                  Please review the migration configuration before starting the content migration pipeline.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl border border-slate-200/50 p-4 space-y-4 text-sm text-slate-700">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="block text-xs font-semibold text-slate-400 uppercase">Source Env</span>
+                  <span className="block font-medium text-slate-800 break-all">{source?.host}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-slate-400 uppercase">Destination Env</span>
+                  <span className="block font-medium text-slate-800 break-all">{destination?.host}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200/50 pt-3">
+                <span className="block text-xs font-semibold text-slate-400 uppercase">Sitecore Item Paths</span>
+                <div className="max-h-24 overflow-y-auto space-y-1 mt-1">
+                  {itemPathInput.split(",").map((path, idx) => (
+                    <span key={idx} className="block font-mono text-xs text-slate-700 bg-white border border-slate-200/40 px-2 py-1 rounded">
+                      {path.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 border-t border-slate-200/50 pt-3">
+                <div>
+                  <span className="block text-xs font-semibold text-slate-400 uppercase">Scope</span>
+                  <span className={`block font-medium ${scope === "ItemAndDescendants" ? "text-rose-600 font-bold" : "text-slate-800"}`}>
+                    {scope === "SingleItem" ? "Single Item" : "Item & Descendants"}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-slate-400 uppercase">Conflict Strategy</span>
+                  <span className={`block font-medium ${mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" ? "text-rose-600 font-bold" : "text-slate-800"}`}>
+                    {mergeStrategy === "OverrideExistingItem" && "Override Existing Item"}
+                    {mergeStrategy === "KeepExistingItem" && "Keep Existing Item"}
+                    {mergeStrategy === "LatestWin" && "Latest Modified Wins"}
+                    {mergeStrategy === "OverrideExistingTree" && "Override Existing Tree"}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-slate-400 uppercase">Database</span>
+                  <span className="block font-medium text-slate-800">{database}</span>
+                </div>
+              </div>
+            </div>
+
+            {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && (
+              <div className="flex gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-250/20 text-amber-800 text-xs shadow-inner">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                <div className="space-y-0.5">
+                  <span className="font-bold block text-amber-900">High-Resource / Destructive Operation</span>
+                  <span>
+                    {scope === "ItemAndDescendants" && "• Migrating an entire item tree (including all descendants) is resource-intensive. "}
+                    {(mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree") && "• Overriding existing items/trees will permanently overwrite destination content. "}
+                    Please ensure you have backups of your destination database before proceeding.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeTransfer}
+                className="px-5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-95 text-white transition-all shadow-sm shadow-indigo-500/10"
+              >
+                Start Pipeline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -177,15 +177,13 @@ export default function SourcesPage() {
                             Consume
                           </button>
                         )}
-                        {isTransferred && (
-                          <button
-                            onClick={() => setDeleteConfirm({ name: blob.name, isBlob: true })}
-                            className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
-                            title="Delete Source"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setDeleteConfirm({ name: blob.name, isBlob: true })}
+                          className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
+                          title="Delete Source"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -240,15 +238,13 @@ export default function SourcesPage() {
                             Consume
                           </button>
                         )}
-                        {isTransferred && (
-                          <button
-                            onClick={() => setDeleteConfirm({ name: file.name, isBlob: false })}
-                            className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
-                            title="Delete Source"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setDeleteConfirm({ name: file.name, isBlob: false })}
+                          className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
+                          title="Delete Source"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   );

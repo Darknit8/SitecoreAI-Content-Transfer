@@ -2,16 +2,19 @@
 
 import React, { useState, useEffect } from "react";
 import { Database, FolderOpen, Play, CheckCircle2, AlertCircle, RefreshCw, Trash2 } from "lucide-react";
+import { CustomSelect } from "../components/CustomSelect";
 
 export default function SourcesPage() {
   const [sources, setSources] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ name: string; isBlob: boolean } | null>(null);
+  const [destEnv, setDestEnv] = useState("QA");
+  const [environments, setEnvironments] = useState<any>(null);
 
-  const fetchSources = () => {
+  const fetchSources = (envName = destEnv) => {
     setLoading(true);
-    fetch("/api/destination?action=sources")
+    fetch(`/api/destination?action=sources&env=${envName}`)
       .then((res) => res.json())
       .then((data) => {
         setSources(data);
@@ -21,13 +24,27 @@ export default function SourcesPage() {
   };
 
   useEffect(() => {
-    fetchSources();
+    const savedDest = localStorage.getItem("sct_dest_env") || "QA";
+    setDestEnv(savedDest);
+
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => setEnvironments(data))
+      .catch(() => {});
+
+    fetchSources(savedDest);
   }, []);
+
+  const handleEnvChange = (value: string) => {
+    setDestEnv(value);
+    localStorage.setItem("sct_dest_env", value);
+    fetchSources(value);
+  };
 
   const handleConsume = async (name: string, isBlob: boolean) => {
     setStatus(null);
     try {
-      const res = await fetch("/api/destination?action=consume", {
+      const res = await fetch(`/api/destination?action=consume&env=${destEnv}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -38,7 +55,7 @@ export default function SourcesPage() {
       const data = await res.json();
       if (res.ok) {
         setStatus({ type: "success", message: `Ingestion scheduled successfully for ${name}.` });
-        fetchSources();
+        fetchSources(destEnv);
       } else {
         throw new Error(data.error || "Failed to trigger ingestion.");
       }
@@ -50,13 +67,13 @@ export default function SourcesPage() {
   const proceedDelete = async (name: string, isBlob: boolean) => {
     setStatus(null);
     try {
-      const res = await fetch(`/api/destination?action=${isBlob ? "blob" : "file"}&name=${encodeURIComponent(name)}`, {
+      const res = await fetch(`/api/destination?action=${isBlob ? "blob" : "file"}&name=${encodeURIComponent(name)}&env=${destEnv}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (res.ok) {
         setStatus({ type: "success", message: `Successfully deleted ${name}.` });
-        fetchSources();
+        fetchSources(destEnv);
       } else {
         throw new Error(data.error || "Failed to delete source.");
       }
@@ -68,7 +85,7 @@ export default function SourcesPage() {
   const handleRetryAll = async () => {
     setStatus(null);
     try {
-      const res = await fetch("/api/destination?action=retry", {
+      const res = await fetch(`/api/destination?action=retry&env=${destEnv}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ database: "master" }),
@@ -104,12 +121,33 @@ export default function SourcesPage() {
             Retry Failed Imports
           </button>
           <button
-            onClick={fetchSources}
+            onClick={() => fetchSources(destEnv)}
             className="flex items-center justify-center w-10 h-10 border border-slate-200/50 bg-white/70 rounded-lg hover:bg-white transition-all text-slate-500 shadow-sm"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* Target Environment Selector Row */}
+      <div className="flex items-center gap-3 bg-white/60 border border-slate-200/50 p-3.5 rounded-xl shadow-sm text-sm">
+        <span className="text-slate-500 font-bold uppercase text-xs tracking-wider">Target Environment:</span>
+        <CustomSelect
+          value={destEnv}
+          onChange={handleEnvChange}
+          className="w-44"
+          options={[
+            { value: "Dev", label: "Dev", sublabel: "Development environment" },
+            { value: "QA", label: "QA", sublabel: "Quality assurance environment" },
+            { value: "UAT", label: "UAT", sublabel: "User acceptance testing" },
+            { value: "Production", label: "Production", sublabel: "⚠ Live production environment" },
+          ]}
+        />
+        {environments && (
+          <span className="text-xs text-slate-400 font-mono">
+            Host: <span className="text-slate-650 font-medium">{environments[destEnv.toLowerCase()]?.host || "Not configured"}</span>
+          </span>
+        )}
       </div>
 
       {status && (

@@ -19,11 +19,19 @@ function loadConfig() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { dataTrees, database, authPassword } = body;
+    const { dataTrees, database, authPassword, sourceEnv, destEnv } = body;
 
-    const config = loadConfig();
-    const source = body.source || config.source;
-    const destination = body.destination || config.destination;
+    const getEnvConfig = (envName: string) => {
+      const name = (envName || "Dev").toUpperCase();
+      return {
+        host: process.env[`SCT_${name}_HOST`] || "",
+        clientId: process.env[`SCT_${name}_CLIENT_ID`] || "",
+        clientSecret: process.env[`SCT_${name}_CLIENT_SECRET`] || "",
+      };
+    };
+
+    const source = getEnvConfig(sourceEnv || "Dev");
+    const destination = getEnvConfig(destEnv || "QA");
 
     if (
       !source.host || !source.clientId || !source.clientSecret ||

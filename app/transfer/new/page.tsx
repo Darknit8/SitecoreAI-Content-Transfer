@@ -428,8 +428,8 @@ export default function NewTransferPage() {
               <>
                 <div className="flex items-start gap-4">
                   <div className={`p-3 rounded-xl ${(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
-                      ? "bg-rose-50 text-rose-600"
-                      : "bg-indigo-50 text-indigo-600"
+                    ? "bg-rose-50 text-rose-600"
+                    : "bg-indigo-50 text-indigo-600"
                     }`}>
                     <Settings className="w-6 h-6 animate-pulse" />
                   </div>

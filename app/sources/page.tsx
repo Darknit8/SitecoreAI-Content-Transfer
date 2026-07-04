@@ -283,11 +283,10 @@ export default function SourcesPage() {
 
       {status && (
         <div
-          className={`flex items-center gap-3 p-4 rounded-lg border text-sm ${
-            status.type === "success"
-              ? "bg-emerald-50 border-emerald-250 text-emerald-800"
-              : "bg-rose-50 border-rose-250 text-rose-800"
-          }`}
+          className={`flex items-center gap-3 p-4 rounded-lg border text-sm ${status.type === "success"
+            ? "bg-emerald-50 border-emerald-250 text-emerald-800"
+            : "bg-rose-50 border-rose-250 text-rose-800"
+            }`}
         >
           {status.type === "success" ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
           {status.message}
@@ -325,11 +324,10 @@ export default function SourcesPage() {
                             Size: {(blob.size / 1024 / 1024).toFixed(2)} MB • {new Date(blob.lastModified).toLocaleDateString()}
                           </span>
                           <span
-                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              isTransferred
-                                ? "text-emerald-700 bg-emerald-50 border-emerald-200/30"
-                                : "text-slate-500 bg-slate-50 border-slate-200/50"
-                            }`}
+                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${isTransferred
+                              ? "text-emerald-700 bg-emerald-50 border-emerald-200/30"
+                              : "text-slate-500 bg-slate-50 border-slate-200/50"
+                              }`}
                           >
                             {blob.state || "Uploaded"}
                           </span>
@@ -386,11 +384,10 @@ export default function SourcesPage() {
                             Size: {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.lastModified).toLocaleDateString()}
                           </span>
                           <span
-                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              isTransferred
-                                ? "text-emerald-700 bg-emerald-50 border-emerald-200/30"
-                                : "text-slate-500 bg-slate-50 border-slate-200/50"
-                            }`}
+                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${isTransferred
+                              ? "text-emerald-700 bg-emerald-50 border-emerald-200/30"
+                              : "text-slate-500 bg-slate-50 border-slate-200/50"
+                              }`}
                           >
                             {file.state || "Uploaded"}
                           </span>

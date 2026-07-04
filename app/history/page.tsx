@@ -115,7 +115,7 @@ export default function HistoryPage() {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => setEnvironments(data))
-      .catch(() => {});
+      .catch(() => { });
 
     fetchHistory(1, savedDest);
   }, []);

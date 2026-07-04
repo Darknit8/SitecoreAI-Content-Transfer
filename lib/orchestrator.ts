@@ -39,13 +39,13 @@ export class TransferOrchestrator {
   }
 
   private emit(event: OrchestratorEvent): void {
-    for (const listener of this.listeners) {
+    this.listeners.forEach((listener) => {
       try {
         listener(event);
       } catch (err) {
         console.error("Error in orchestrator event listener:", err);
       }
-    }
+    });
   }
 
   private createEvent(type: OrchestratorEvent["type"], transferId: string, extra: Record<string, any> = {}): OrchestratorEvent {

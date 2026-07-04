@@ -364,9 +364,9 @@ export class ItemTransferClient {
         pageSize,
         totalCount: 3,
         sources: [
-          { name: "content_home_backup_2026.raif", size: 1048576 * 14.5, lastModified: new Date().toISOString() },
-          { name: "media_library_assets_v2.raif", size: 1048576 * 48.2, lastModified: new Date().toISOString() },
-          { name: "mock_test_sandbox_data.raif", size: 1024 * 512, lastModified: new Date().toISOString() }
+          { name: "content_home_backup_2026.raif", size: 1048576 * 14.5, lastModified: new Date().toISOString(), state: "Transferred" },
+          { name: "media_library_assets_v2.raif", size: 1048576 * 48.2, lastModified: new Date().toISOString(), state: "Uploaded" },
+          { name: "mock_test_sandbox_data.raif", size: 1024 * 512, lastModified: new Date().toISOString(), state: "Transferred" }
         ]
       };
     }
@@ -385,8 +385,9 @@ export class ItemTransferClient {
       totalCount: raw.TotalCount,
       sources: (raw.Sources || []).map((src: any) => ({
         name: src.Name,
-        size: src.Size,
-        lastModified: src.LastModified
+        size: src.Size || 0,
+        lastModified: src.LastModified || new Date().toISOString(),
+        state: src.BlobState || "Unknown"
       }))
     };
   }
@@ -398,8 +399,8 @@ export class ItemTransferClient {
         pageSize,
         totalCount: 2,
         sources: [
-          { name: "local_cms_backup_001.raif", size: 1048576 * 8.4, lastModified: new Date().toISOString() },
-          { name: "local_cms_backup_002.raif", size: 1048576 * 12.1, lastModified: new Date().toISOString() }
+          { name: "local_cms_backup_001.raif", size: 1048576 * 8.4, lastModified: new Date().toISOString(), state: "Transferred" },
+          { name: "local_cms_backup_002.raif", size: 1048576 * 12.1, lastModified: new Date().toISOString(), state: "Uploaded" }
         ]
       };
     }
@@ -419,7 +420,8 @@ export class ItemTransferClient {
       sources: (raw.Sources || []).map((src: any) => ({
         name: src.FileName || src.Name || "",
         size: src.Size || 0,
-        lastModified: src.LastModified || new Date().toISOString()
+        lastModified: src.LastModified || new Date().toISOString(),
+        state: src.FileState || src.State || "Unknown"
       }))
     };
   }
@@ -487,6 +489,28 @@ export class ItemTransferClient {
     if (response.status !== 202 && response.status !== 200 && response.status !== 204) {
       const errText = await response.text();
       throw new SitecoreApiError(`Delete history record failed: ${response.statusText}`, response.status, path, errText);
+    }
+  }
+
+  async deleteBlobSource(blobName: string): Promise<void> {
+    if (this.isMock) {
+      return;
+    }
+
+    const path = `/sources/blobs/${encodeURIComponent(blobName)}`;
+    const response = await this.request(path, { method: "DELETE" });
+
+    if (response.status !== 202 && response.status !== 200 && response.status !== 204) {
+      const errText = await response.text();
+      throw new SitecoreApiError(`Delete blob source failed: ${response.statusText}`, response.status, path, errText);
+    }
+  }
+
+  async deleteFileSource(fileName: string): Promise<void> {
+    // Filesystem deletion is not supported by the Item Transfer API spec directly.
+    // In Mock/Local mode, we can succeed.
+    if (this.isMock) {
+      return;
     }
   }
 }

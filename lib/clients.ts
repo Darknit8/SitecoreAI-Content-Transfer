@@ -202,6 +202,16 @@ export class ContentTransferClient {
   }
 }
 
+function normalizeItemTransferState(state: string): ItemTransferState {
+  if (!state) return "Unknown" as ItemTransferState;
+  const s = state.trim().toLowerCase();
+  if (s === "finished" || s === "completed") return ItemTransferState.Completed;
+  if (s === "failed") return ItemTransferState.Failed;
+  if (s === "inprogress") return ItemTransferState.InProgress;
+  if (s === "queued") return ItemTransferState.Queued;
+  return state as ItemTransferState;
+}
+
 // ============================================================================
 // Item Transfer API Client
 // ============================================================================
@@ -276,8 +286,8 @@ export class ItemTransferClient {
         id: t.Id,
         sourceName: t.SourceName,
         databaseName: t.DatabaseName,
-        state: t.State as ItemTransferState,
-        consumeDate: t.ConsumeDate
+        state: normalizeItemTransferState(t.State || t.TransferState),
+        consumeDate: t.ConsumeDate || t.ConsumedDate
       }))
     };
   }
@@ -312,13 +322,13 @@ export class ItemTransferClient {
       id: raw.Id,
       sourceName: raw.SourceName,
       databaseName: raw.DatabaseName,
-      state: raw.State as ItemTransferState,
-      consumeDate: raw.ConsumeDate,
-      totalItems: raw.TotalItems,
-      processedItems: raw.ProcessedItems,
-      skippedItems: raw.SkippedItems,
-      failedItems: raw.FailedItems,
-      errors: raw.Errors || [],
+      state: normalizeItemTransferState(raw.State || raw.TransferState),
+      consumeDate: raw.ConsumeDate || raw.ConsumedDate,
+      totalItems: raw.TotalItems || raw.TotalItemsCount || 0,
+      processedItems: raw.ProcessedItems || raw.TransferredItemsCount || 0,
+      skippedItems: raw.SkippedItems || 0,
+      failedItems: raw.FailedItems || 0,
+      errors: raw.Errors || raw.ValidationErrors || [],
       warnings: raw.Warnings || []
     };
   }
@@ -364,9 +374,9 @@ export class ItemTransferClient {
         pageSize,
         totalCount: 3,
         sources: [
-          { name: "content_home_backup_2026.raif", size: 1048576 * 14.5, lastModified: new Date().toISOString() },
-          { name: "media_library_assets_v2.raif", size: 1048576 * 48.2, lastModified: new Date().toISOString() },
-          { name: "mock_test_sandbox_data.raif", size: 1024 * 512, lastModified: new Date().toISOString() }
+          { name: "content_home_backup_2026.raif", size: 1048576 * 14.5, lastModified: new Date().toISOString(), state: "Transferred" },
+          { name: "media_library_assets_v2.raif", size: 1048576 * 48.2, lastModified: new Date().toISOString(), state: "Uploaded" },
+          { name: "mock_test_sandbox_data.raif", size: 1024 * 512, lastModified: new Date().toISOString(), state: "Transferred" }
         ]
       };
     }
@@ -385,8 +395,9 @@ export class ItemTransferClient {
       totalCount: raw.TotalCount,
       sources: (raw.Sources || []).map((src: any) => ({
         name: src.Name,
-        size: src.Size,
-        lastModified: src.LastModified
+        size: src.Size || 0,
+        lastModified: src.LastModified || new Date().toISOString(),
+        state: src.BlobState || "Unknown"
       }))
     };
   }
@@ -398,8 +409,8 @@ export class ItemTransferClient {
         pageSize,
         totalCount: 2,
         sources: [
-          { name: "local_cms_backup_001.raif", size: 1048576 * 8.4, lastModified: new Date().toISOString() },
-          { name: "local_cms_backup_002.raif", size: 1048576 * 12.1, lastModified: new Date().toISOString() }
+          { name: "local_cms_backup_001.raif", size: 1048576 * 8.4, lastModified: new Date().toISOString(), state: "Transferred" },
+          { name: "local_cms_backup_002.raif", size: 1048576 * 12.1, lastModified: new Date().toISOString(), state: "Uploaded" }
         ]
       };
     }
@@ -417,9 +428,10 @@ export class ItemTransferClient {
       pageSize: raw.PageSize,
       totalCount: raw.TotalCount,
       sources: (raw.Sources || []).map((src: any) => ({
-        name: src.Name,
-        size: src.Size,
-        lastModified: src.LastModified
+        name: src.FileName || src.Name || "",
+        size: src.Size || 0,
+        lastModified: src.LastModified || new Date().toISOString(),
+        state: src.FileState || src.State || "Unknown"
       }))
     };
   }
@@ -444,17 +456,34 @@ export class ItemTransferClient {
       throw new SitecoreApiError(`Get history failed: ${response.statusText}`, response.status, path, errText);
     }
     const raw = await response.json();
+    const records = raw.Sources || raw.Records || [];
     return {
       page: raw.Page,
       pageSize: raw.PageSize,
       totalCount: raw.TotalCount,
-      records: (raw.Records || []).map((rec: any) => ({
-        id: rec.Id,
-        sourceName: rec.SourceName,
-        databaseName: rec.DatabaseName,
-        state: rec.State,
-        consumeDate: rec.ConsumeDate
-      }))
+      records: records.map((rec: any) => {
+        let state = rec.State || rec.TransferState;
+        if (!state && Array.isArray(rec.Events) && rec.Events.length > 0) {
+          const sortedEvents = [...rec.Events].sort(
+            (a, b) => new Date(a.Date).getTime() - new Date(b.Date).getTime()
+          );
+          const latestEvent = sortedEvents[sortedEvents.length - 1];
+          if (latestEvent.Name === "Finished") {
+            state = "Completed";
+          } else if (latestEvent.Name === "Failed") {
+            state = "Failed";
+          } else {
+            state = latestEvent.Name;
+          }
+        }
+        return {
+          id: rec.Name || rec.Id || "unknown",
+          sourceName: rec.SourceName || "",
+          databaseName: rec.DatabaseName || "master",
+          state: state || "Completed",
+          consumeDate: rec.ConsumeDate || rec.ConsumedDate || new Date().toISOString()
+        };
+      })
     };
   }
 
@@ -470,6 +499,28 @@ export class ItemTransferClient {
     if (response.status !== 202 && response.status !== 200 && response.status !== 204) {
       const errText = await response.text();
       throw new SitecoreApiError(`Delete history record failed: ${response.statusText}`, response.status, path, errText);
+    }
+  }
+
+  async deleteBlobSource(blobName: string): Promise<void> {
+    if (this.isMock) {
+      return;
+    }
+
+    const path = `/sources/blobs/${encodeURIComponent(blobName)}`;
+    const response = await this.request(path, { method: "DELETE" });
+
+    if (response.status !== 202 && response.status !== 200 && response.status !== 204) {
+      const errText = await response.text();
+      throw new SitecoreApiError(`Delete blob source failed: ${response.statusText}`, response.status, path, errText);
+    }
+  }
+
+  async deleteFileSource(fileName: string): Promise<void> {
+    // Filesystem deletion is not supported by the Item Transfer API spec directly.
+    // In Mock/Local mode, we can succeed.
+    if (this.isMock) {
+      return;
     }
   }
 }

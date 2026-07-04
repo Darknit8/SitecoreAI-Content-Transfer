@@ -103,3 +103,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get("action");
+    const name = searchParams.get("name");
+
+    if (!name) {
+      return NextResponse.json({ error: "Source name is required" }, { status: 400 });
+    }
+
+    const destination = getDestinationConfig();
+    if (!destination.host || !destination.clientId || !destination.clientSecret) {
+      return NextResponse.json({ error: "Destination environment variables (SCT_DEST_*) not configured" }, { status: 400 });
+    }
+
+    const client = new ItemTransferClient(destination);
+
+    if (action === "blob") {
+      await client.deleteBlobSource(name);
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "file") {
+      await client.deleteFileSource(name);
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "Unknown action parameter" }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
+}

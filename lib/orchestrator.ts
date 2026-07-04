@@ -367,7 +367,17 @@ export class TransferOrchestrator {
   ): Promise<{ processed: number; failed: number }> {
     this.emit(this.createEvent("consume:started", transferId, { raifFileName: fileName, database }));
 
-    await this.destItemClient.startConsume(database, { fileName });
+    try {
+      // Try blobName first (for Azure Blob storage destination environments)
+      await this.destItemClient.startConsume(database, { blobName: fileName });
+    } catch (err: any) {
+      // If it fails with 400 Bad Request, fallback to fileName (for Filesystem destination environments)
+      if (err.status === 400) {
+        await this.destItemClient.startConsume(database, { fileName: fileName });
+      } else {
+        throw err;
+      }
+    }
 
     let completed = false;
     let attempts = 0;

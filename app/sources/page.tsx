@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Database, FolderOpen, Play, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Database, FolderOpen, Play, CheckCircle2, AlertCircle, RefreshCw, Trash2 } from "lucide-react";
 
 export default function SourcesPage() {
   const [sources, setSources] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<any>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ name: string; isBlob: boolean } | null>(null);
 
   const fetchSources = () => {
     setLoading(true);
@@ -37,8 +38,27 @@ export default function SourcesPage() {
       const data = await res.json();
       if (res.ok) {
         setStatus({ type: "success", message: `Ingestion scheduled successfully for ${name}.` });
+        fetchSources();
       } else {
         throw new Error(data.error || "Failed to trigger ingestion.");
+      }
+    } catch (err) {
+      setStatus({ type: "error", message: (err as Error).message });
+    }
+  };
+
+  const proceedDelete = async (name: string, isBlob: boolean) => {
+    setStatus(null);
+    try {
+      const res = await fetch(`/api/destination?action=${isBlob ? "blob" : "file"}&name=${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus({ type: "success", message: `Successfully deleted ${name}.` });
+        fetchSources();
+      } else {
+        throw new Error(data.error || "Failed to delete source.");
       }
     } catch (err) {
       setStatus({ type: "error", message: (err as Error).message });
@@ -122,27 +142,52 @@ export default function SourcesPage() {
               <div className="text-sm text-slate-400 py-6 text-center">No packages found in blob container.</div>
             ) : (
               <div className="space-y-3">
-                {sources.blobs.sources.map((blob: any) => (
-                  <div
-                    key={blob.name}
-                    className="flex items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40"
-                  >
-                    <div>
-                      <span className="block font-semibold text-sm text-slate-700">{blob.name}</span>
-                      <span className="block text-xs text-slate-400 mt-0.5">
-                        Size: {(blob.size / 1024 / 1024).toFixed(2)} MB • {new Date(blob.lastModified).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => handleConsume(blob.name, true)}
-                      className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
+                {sources.blobs.sources.map((blob: any) => {
+                  const isTransferred = blob.state === "Transferred" || blob.state === "Consumed";
+                  return (
+                    <div
+                      key={blob.name}
+                      className="flex items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40"
                     >
-                      <Play className="w-3 h-3 fill-current" />
-                      Consume
-                    </button>
-                  </div>
-                ))}
+                      <div className="space-y-1">
+                        <span className="block font-semibold text-sm text-slate-700">{blob.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400">
+                            Size: {(blob.size / 1024 / 1024).toFixed(2)} MB • {new Date(blob.lastModified).toLocaleDateString()}
+                          </span>
+                          <span
+                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              isTransferred
+                                ? "text-emerald-700 bg-emerald-50 border-emerald-200/30"
+                                : "text-slate-500 bg-slate-50 border-slate-200/50"
+                            }`}
+                          >
+                            {blob.state || "Uploaded"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {!isTransferred && (
+                          <button
+                            onClick={() => handleConsume(blob.name, true)}
+                            className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
+                          >
+                            <Play className="w-3 h-3 fill-current" />
+                            Consume
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setDeleteConfirm({ name: blob.name, isBlob: true })}
+                          className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
+                          title="Delete Source"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -158,29 +203,91 @@ export default function SourcesPage() {
               <div className="text-sm text-slate-400 py-6 text-center">No package files discovered on server path.</div>
             ) : (
               <div className="space-y-3">
-                {sources.files.sources.map((file: any) => (
-                  <div
-                    key={file.name}
-                    className="flex items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40"
-                  >
-                    <div>
-                      <span className="block font-semibold text-sm text-slate-700">{file.name}</span>
-                      <span className="block text-xs text-slate-400 mt-0.5">
-                        Size: {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.lastModified).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => handleConsume(file.name, false)}
-                      className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
+                {sources.files.sources.map((file: any) => {
+                  const isTransferred = file.state === "Transferred" || file.state === "Consumed";
+                  return (
+                    <div
+                      key={file.name}
+                      className="flex items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40"
                     >
-                      <Play className="w-3 h-3 fill-current" />
-                      Consume
-                    </button>
-                  </div>
-                ))}
+                      <div className="space-y-1">
+                        <span className="block font-semibold text-sm text-slate-700">{file.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400">
+                            Size: {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.lastModified).toLocaleDateString()}
+                          </span>
+                          <span
+                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              isTransferred
+                                ? "text-emerald-700 bg-emerald-50 border-emerald-200/30"
+                                : "text-slate-500 bg-slate-50 border-slate-200/50"
+                            }`}
+                          >
+                            {file.state || "Uploaded"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {!isTransferred && (
+                          <button
+                            onClick={() => handleConsume(file.name, false)}
+                            className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
+                          >
+                            <Play className="w-3 h-3 fill-current" />
+                            Consume
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setDeleteConfirm({ name: file.name, isBlob: false })}
+                          className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
+                          title="Delete Source"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900">Delete Source Package</h3>
+                <p className="text-sm text-slate-500">
+                  Are you sure you want to permanently delete the {deleteConfirm.isBlob ? "blob" : "file"} source <strong className="text-slate-800 break-all">"{deleteConfirm.name}"</strong>? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const { name, isBlob } = deleteConfirm;
+                  setDeleteConfirm(null);
+                  await proceedDelete(name, isBlob);
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-sm shadow-rose-600/10"
+              >
+                Confirm Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

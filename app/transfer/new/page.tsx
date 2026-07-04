@@ -151,14 +151,19 @@ export default function NewTransferPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-slate-50 border border-slate-200/50 text-xs">
-          <div>
-            <span className="block text-slate-400 font-semibold uppercase">Source Environment</span>
-            <span className="block font-medium mt-0.5 text-slate-700">{source.host}</span>
+        <div className="p-4 rounded-xl bg-slate-50/60 border border-slate-200/50 text-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-slate-400 font-bold uppercase tracking-wider">Source Environment</span>
+            <span className="font-mono text-xs text-slate-700 bg-white border border-slate-200/50 px-3 py-1 rounded-lg shadow-sm">
+              {source.host}
+            </span>
           </div>
-          <div>
-            <span className="block text-slate-400 font-semibold uppercase">Destination Environment</span>
-            <span className="block font-medium mt-0.5 text-slate-700">{destination.host}</span>
+          <div className="border-t border-slate-200/40"></div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-slate-400 font-bold uppercase tracking-wider">Destination Environment</span>
+            <span className="font-mono text-xs text-slate-700 bg-white border border-slate-200/50 px-3 py-1 rounded-lg shadow-sm">
+              {destination.host}
+            </span>
           </div>
         </div>
 

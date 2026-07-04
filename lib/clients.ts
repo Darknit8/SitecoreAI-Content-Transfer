@@ -202,6 +202,16 @@ export class ContentTransferClient {
   }
 }
 
+function normalizeItemTransferState(state: string): ItemTransferState {
+  if (!state) return "Unknown" as ItemTransferState;
+  const s = state.trim().toLowerCase();
+  if (s === "finished" || s === "completed") return ItemTransferState.Completed;
+  if (s === "failed") return ItemTransferState.Failed;
+  if (s === "inprogress") return ItemTransferState.InProgress;
+  if (s === "queued") return ItemTransferState.Queued;
+  return state as ItemTransferState;
+}
+
 // ============================================================================
 // Item Transfer API Client
 // ============================================================================
@@ -276,7 +286,7 @@ export class ItemTransferClient {
         id: t.Id,
         sourceName: t.SourceName,
         databaseName: t.DatabaseName,
-        state: (t.State || t.TransferState || "Unknown") as ItemTransferState,
+        state: normalizeItemTransferState(t.State || t.TransferState),
         consumeDate: t.ConsumeDate || t.ConsumedDate
       }))
     };
@@ -312,7 +322,7 @@ export class ItemTransferClient {
       id: raw.Id,
       sourceName: raw.SourceName,
       databaseName: raw.DatabaseName,
-      state: (raw.State || raw.TransferState || "Unknown") as ItemTransferState,
+      state: normalizeItemTransferState(raw.State || raw.TransferState),
       consumeDate: raw.ConsumeDate || raw.ConsumedDate,
       totalItems: raw.TotalItems || raw.TotalItemsCount || 0,
       processedItems: raw.ProcessedItems || raw.TransferredItemsCount || 0,

@@ -19,29 +19,24 @@ import {
 const apiLinks = [
   {
     label: "Content Transfer API — Overview",
-    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/sitecore-content-transfer.html",
+    href: "https://api-docs.sitecore.com/sai/content-transfer/section/authorization/create-an-automation-client",
     description: "Official Sitecore XP content transfer documentation",
   },
   {
     label: "Item Transfer REST API Reference",
-    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/the-item-transfer-api.html",
+    href: "https://api-docs.sitecore.com/sai/item-transfer",
     description: "Endpoints for exporting & ingesting items via REST",
   },
   {
     label: "Chunk Streaming Protocol",
-    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/transferring-content-with-the-sitecore-content-transfer-module.html",
+    href: "https://api-docs.sitecore.com/sai/content-transfer/content-transfer-api/contenttransfer_savechunkasync",
     description: "How chunked .raif packages are built and consumed",
   },
   {
     label: "Identity Server — OAuth2 / Client Credentials",
-    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/configure-client-credentials-flow-for-sitecore-services-client.html",
+    href: "https://api-docs.sitecore.com/sai/content-transfer/section/authorization/request-a-jwt",
     description: "Configuring Client ID & Client Secret for API access",
-  },
-  {
-    label: "Transfer Scope & Conflict Strategy",
-    href: "https://doc.sitecore.com/xp/en/developers/103/sitecore-experience-platform/content-transfer-command-line-tool.html",
-    description: "SingleItem, ItemAndDescendants, conflict resolution modes",
-  },
+  }
 ];
 
 const navCards = [

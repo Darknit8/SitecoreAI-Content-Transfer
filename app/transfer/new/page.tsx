@@ -345,7 +345,7 @@ export default function NewTransferPage() {
                 </div>
 
                 <div className="bg-slate-50 rounded-xl border border-slate-200/50 p-4 space-y-4 text-sm text-slate-700">
-                   <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <span className="block text-xs font-semibold text-slate-400 uppercase">Source Env</span>
                       <span className="block font-bold text-slate-800">
@@ -426,11 +426,10 @@ export default function NewTransferPage() {
             ) : (
               <>
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-xl ${
-                    (scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                  <div className={`p-3 rounded-xl ${(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
                       ? "bg-rose-50 text-rose-600"
                       : "bg-indigo-50 text-indigo-600"
-                  }`}>
+                    }`}>
                     <Settings className="w-6 h-6 animate-pulse" />
                   </div>
                   <div className="space-y-1">
@@ -492,7 +491,7 @@ export default function NewTransferPage() {
                 </div>
               </>
             )
-          }
+            }
           </div>
         </div>
       )}

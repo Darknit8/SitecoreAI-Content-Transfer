@@ -42,11 +42,10 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                isActive
-                  ? "text-indigo-650 bg-white/90 shadow-sm border border-slate-100/50"
-                  : "text-slate-600 hover:text-indigo-600 hover:bg-white/85 hover:shadow-sm"
-              }`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${isActive
+                ? "text-indigo-650 bg-white/90 shadow-sm border border-slate-100/50"
+                : "text-slate-600 hover:text-indigo-600 hover:bg-white/85 hover:shadow-sm"
+                }`}
             >
               <Icon className={`w-4 h-4 ${isActive ? "text-indigo-550" : "text-slate-400"}`} />
               {link.label}

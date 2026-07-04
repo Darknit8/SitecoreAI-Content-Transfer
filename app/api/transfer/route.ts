@@ -12,7 +12,7 @@ function loadConfig() {
       const data = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
       return JSON.parse(data);
     }
-  } catch (err) {}
+  } catch (err) { }
   return { source: null, destination: null };
 }
 
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     const transferId = crypto.randomUUID();
     const controller = new AbortController();
     activeOrchestrators.set(transferId, controller);
-    
+
     transferStore.create(transferId);
 
     // Resolve real secrets from process.env if they were masked ("********") in body
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
 
   if (sse === "true") {
     const encoder = new TextEncoder();
-    
+
     const stream = new ReadableStream({
       start(controller) {
         // Enqueue existing events immediately
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
         let lastCount = run.events.length;
         const interval = setInterval(() => {
           const currentCount = run.events.length;
-          
+
           if (currentCount > lastCount) {
             for (let i = lastCount; i < currentCount; i++) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(run.events[i])}\n\n`));

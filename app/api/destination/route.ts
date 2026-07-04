@@ -11,7 +11,7 @@ function loadConfig() {
       const data = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
       return JSON.parse(data);
     }
-  } catch (err) {}
+  } catch (err) { }
   return { source: null, destination: null };
 }
 
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     let body: any = {};
     try {
       body = await req.json();
-    } catch (e) {}
+    } catch (e) { }
 
     const finalEnv = env || body.env;
     const destination = getDestinationConfig(finalEnv);

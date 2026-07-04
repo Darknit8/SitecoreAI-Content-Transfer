@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRightLeft, AlertCircle, Settings } from "lucide-react";
+import { CustomSelect } from "../../components/CustomSelect";
 
 export default function NewTransferPage() {
   const router = useRouter();
@@ -10,11 +11,60 @@ export default function NewTransferPage() {
   const [hasConfig, setHasConfig] = useState(false);
   const [source, setSource] = useState<any>(null);
   const [destination, setDestination] = useState<any>(null);
+  const [environments, setEnvironments] = useState<any>(null);
 
   const [itemPathInput, setItemPathInput] = useState("");
   const [scope, setScope] = useState("SingleItem");
   const [mergeStrategy, setMergeStrategy] = useState("OverrideExistingItem");
   const [database, setDatabase] = useState("master");
+
+  const [sourceEnv, setSourceEnv] = useState("Dev");
+  const [destEnv, setDestEnv] = useState("QA");
+  const [prevSourceEnv, setPrevSourceEnv] = useState("Dev");
+  const [prevDestEnv, setPrevDestEnv] = useState("QA");
+  const [showProdModal, setShowProdModal] = useState(false);
+  const [prodWarningType, setProdWarningType] = useState<"source" | "destination" | null>(null);
+
+  const handleSourceEnvChange = (value: string) => {
+    localStorage.setItem("sct_source_env", value);
+    if (value === "Production") {
+      setProdWarningType("source");
+      setShowProdModal(true);
+      setPrevSourceEnv(sourceEnv);
+      setSourceEnv(value);
+    } else {
+      setSourceEnv(value);
+    }
+  };
+
+  const handleDestEnvChange = (value: string) => {
+    localStorage.setItem("sct_dest_env", value);
+    if (value === "Production") {
+      setProdWarningType("destination");
+      setShowProdModal(true);
+      setPrevDestEnv(destEnv);
+      setDestEnv(value);
+    } else {
+      setDestEnv(value);
+    }
+  };
+
+  const confirmProductionSelection = () => {
+    setShowProdModal(false);
+    setProdWarningType(null);
+  };
+
+  const cancelProductionSelection = () => {
+    if (prodWarningType === "source") {
+      setSourceEnv(prevSourceEnv);
+      localStorage.setItem("sct_source_env", prevSourceEnv);
+    } else if (prodWarningType === "destination") {
+      setDestEnv(prevDestEnv);
+      localStorage.setItem("sct_dest_env", prevDestEnv);
+    }
+    setShowProdModal(false);
+    setProdWarningType(null);
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,10 +74,16 @@ export default function NewTransferPage() {
   const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
+    const savedSource = localStorage.getItem("sct_source_env");
+    const savedDest = localStorage.getItem("sct_dest_env");
+    if (savedSource) setSourceEnv(savedSource);
+    if (savedDest) setDestEnv(savedDest);
+
     fetch("/api/settings")
       .then(res => res.json())
       .then(data => {
         setConfigLoaded(true);
+        setEnvironments(data);
         if (data.source && data.destination) {
           setHasConfig(true);
           setSource(data.source);
@@ -39,6 +95,10 @@ export default function NewTransferPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (sourceEnv === destEnv) {
+      setError("Source and destination environments cannot be the same.");
+      return;
+    }
     setError(null);
     setModalError(null);
     setAuthPassword("");
@@ -78,8 +138,8 @@ export default function NewTransferPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source,
-          destination,
+          sourceEnv,
+          destEnv,
           dataTrees: paths.map(itemPath => ({
             itemPath,
             scope,
@@ -151,20 +211,53 @@ export default function NewTransferPage() {
           </div>
         )}
 
-        <div className="p-4 rounded-xl bg-slate-50/60 border border-slate-200/50 text-xs space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <span className="text-slate-400 font-bold uppercase tracking-wider">Source Environment</span>
-            <span className="font-mono text-xs text-slate-700 bg-white border border-slate-200/50 px-3 py-1 rounded-lg shadow-sm">
-              {source.host}
-            </span>
+        <div className="p-5 rounded-xl bg-slate-50/60 border border-slate-200/50 text-xs space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-slate-400 font-bold uppercase tracking-wider">Source Environment</label>
+              <CustomSelect
+                value={sourceEnv}
+                onChange={handleSourceEnvChange}
+                options={[
+                  { value: "Dev", label: "Dev", sublabel: "Development environment" },
+                  { value: "QA", label: "QA", sublabel: "Quality assurance environment" },
+                  { value: "UAT", label: "UAT", sublabel: "User acceptance testing" },
+                  { value: "Production", label: "Production", sublabel: "⚠ Live production environment" },
+                ]}
+              />
+              <div className="min-h-[32px]">
+                <span className="block text-[10px] text-slate-400 font-mono mt-0.5 break-all">
+                  Host: {environments?.[sourceEnv.toLowerCase()]?.host || "Not configured"}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-slate-400 font-bold uppercase tracking-wider">Destination Environment</label>
+              <CustomSelect
+                value={destEnv}
+                onChange={handleDestEnvChange}
+                options={[
+                  { value: "Dev", label: "Dev", sublabel: "Development environment" },
+                  { value: "QA", label: "QA", sublabel: "Quality assurance environment" },
+                  { value: "UAT", label: "UAT", sublabel: "User acceptance testing" },
+                  { value: "Production", label: "Production", sublabel: "⚠ Live production environment" },
+                ]}
+              />
+              <div className="min-h-[32px]">
+                <span className="block text-[10px] text-slate-400 font-mono mt-0.5 break-all">
+                  Host: {environments?.[destEnv.toLowerCase()]?.host || "Not configured"}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="border-t border-slate-200/40"></div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <span className="text-slate-400 font-bold uppercase tracking-wider">Destination Environment</span>
-            <span className="font-mono text-xs text-slate-700 bg-white border border-slate-200/50 px-3 py-1 rounded-lg shadow-sm">
-              {destination.host}
-            </span>
-          </div>
+
+          {sourceEnv === destEnv && (
+            <div className="flex items-center gap-2 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg font-medium">
+              <AlertCircle className="w-4 h-4" />
+              Source and Destination environments cannot be the same.
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -185,47 +278,47 @@ export default function NewTransferPage() {
         <div className="grid md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-500 uppercase">Scope</label>
-            <select
+            <CustomSelect
               value={scope}
-              onChange={e => setScope(e.target.value)}
-              className="w-full bg-white/50 border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:bg-white transition-all shadow-sm"
-            >
-              <option value="SingleItem">Single Item Only</option>
-              <option value="ItemAndDescendants">Item And Descendants</option>
-            </select>
+              onChange={setScope}
+              options={[
+                { value: "SingleItem", label: "Single Item Only", sublabel: "Transfer only the selected item" },
+                { value: "ItemAndDescendants", label: "Item And Descendants", sublabel: "Transfer item and all children" },
+              ]}
+            />
           </div>
 
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-550 uppercase">Conflict Strategy</label>
-            <select
+            <CustomSelect
               value={mergeStrategy}
-              onChange={e => setMergeStrategy(e.target.value)}
-              className="w-full bg-white/50 border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:bg-white transition-all shadow-sm"
-            >
-              <option value="OverrideExistingItem">Override Existing Item</option>
-              <option value="KeepExistingItem">Keep Existing Item</option>
-              <option value="LatestWin">Latest Modifed Wins</option>
-              <option value="OverrideExistingTree">Override Existing Tree</option>
-            </select>
+              onChange={setMergeStrategy}
+              options={[
+                { value: "OverrideExistingItem", label: "Override Existing Item", sublabel: "Destination item is replaced" },
+                { value: "KeepExistingItem", label: "Keep Existing Item", sublabel: "Source item is ignored" },
+                { value: "LatestWin", label: "Latest Modified Wins", sublabel: "Most recent modification kept" },
+                { value: "OverrideExistingTree", label: "Override Existing Tree", sublabel: "Replace entire item tree" },
+              ]}
+            />
           </div>
 
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-550 uppercase">Target Database</label>
-            <select
+            <CustomSelect
               value={database}
-              onChange={e => setDatabase(e.target.value)}
-              className="w-full bg-white/50 border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:bg-white transition-all shadow-sm"
-            >
-              <option value="master">master</option>
-              <option value="web">web</option>
-            </select>
+              onChange={setDatabase}
+              options={[
+                { value: "master", label: "master", sublabel: "Authoring database" },
+                { value: "web", label: "web", sublabel: "Published delivery database" },
+              ]}
+            />
           </div>
         </div>
 
         <div className="flex justify-end pt-4 border-t border-slate-200/50">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || sourceEnv === destEnv}
             className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-bold text-sm px-6 py-3 rounded-lg disabled:opacity-50 transition-all shadow-md shadow-indigo-500/20"
           >
             <ArrowRightLeft className="w-4 h-4" />
@@ -255,11 +348,15 @@ export default function NewTransferPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <span className="block text-xs font-semibold text-slate-400 uppercase">Source Env</span>
-                      <span className="block font-medium text-slate-800 break-all">{source?.host}</span>
+                      <span className="block font-bold text-slate-800">
+                        {sourceEnv} <span className="text-xs font-mono font-normal text-slate-400">({environments?.[sourceEnv.toLowerCase()]?.host || "Not configured"})</span>
+                      </span>
                     </div>
                     <div>
                       <span className="block text-xs font-semibold text-slate-400 uppercase">Destination Env</span>
-                      <span className="block font-medium text-slate-800 break-all">{destination?.host}</span>
+                      <span className="block font-bold text-slate-800">
+                        {destEnv} <span className="text-xs font-mono font-normal text-slate-400">({environments?.[destEnv.toLowerCase()]?.host || "Not configured"})</span>
+                      </span>
                     </div>
                   </div>
 
@@ -329,11 +426,10 @@ export default function NewTransferPage() {
             ) : (
               <>
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-xl ${
-                    (scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
+                  <div className={`p-3 rounded-xl ${(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree")
                       ? "bg-rose-50 text-rose-600"
                       : "bg-indigo-50 text-indigo-600"
-                  }`}>
+                    }`}>
                     <Settings className="w-6 h-6 animate-pulse" />
                   </div>
                   <div className="space-y-1">
@@ -395,7 +491,45 @@ export default function NewTransferPage() {
                 </div>
               </>
             )
-          }
+            }
+          </div>
+        </div>
+      )}
+
+      {showProdModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                <AlertCircle className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="space-y-1 flex-1">
+                <h3 className="text-lg font-bold text-slate-900">Production Environment Risk Warning</h3>
+                <p className="text-sm text-slate-500 mt-2">
+                  Selecting <strong>Production</strong> as a migration {prodWarningType} can impact live user traffic, database load, and carries the risk of overwriting or exposing live content.
+                </p>
+                <div className="bg-amber-50 border border-amber-250/20 rounded-xl p-3.5 mt-3 text-xs text-amber-800 space-y-1">
+                  <span className="font-bold block text-amber-900">Important Reminders:</span>
+                  <span>• Ensure Organization Admin approval.</span>
+                  <span>• Confirm backups are completed before starting.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+              <button
+                onClick={cancelProductionSelection}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
+              >
+                Cancel Selection
+              </button>
+              <button
+                onClick={confirmProductionSelection}
+                className="px-5 py-2 rounded-lg text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white transition-all shadow-sm"
+              >
+                I Understand the Risks
+              </button>
+            </div>
           </div>
         </div>
       )}

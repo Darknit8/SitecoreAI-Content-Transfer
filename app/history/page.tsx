@@ -2,17 +2,20 @@
 
 import React, { useState, useEffect } from "react";
 import { History, Calendar, CheckCircle2, XCircle, ChevronLeft, ChevronRight, RefreshCw, AlertTriangle } from "lucide-react";
+import { CustomSelect } from "../components/CustomSelect";
 
 export default function HistoryPage() {
   const [historyData, setHistoryData] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [destEnv, setDestEnv] = useState("QA");
+  const [environments, setEnvironments] = useState<any>(null);
 
-  const fetchHistory = (pageNumber: number) => {
+  const fetchHistory = (pageNumber: number, envName = destEnv) => {
     setLoading(true);
     setErrorMessage(null);
-    fetch(`/api/destination?action=history&page=${pageNumber}&size=15`)
+    fetch(`/api/destination?action=history&page=${pageNumber}&size=15&env=${envName}`)
       .then((res) => {
         if (!res.ok) {
           return res.json().then(d => { throw new Error(d.error || "Failed to load history") });
@@ -31,8 +34,22 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    fetchHistory(1);
+    const savedDest = localStorage.getItem("sct_dest_env") || "QA";
+    setDestEnv(savedDest);
+
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => setEnvironments(data))
+      .catch(() => {});
+
+    fetchHistory(1, savedDest);
   }, []);
+
+  const handleEnvChange = (value: string) => {
+    setDestEnv(value);
+    localStorage.setItem("sct_dest_env", value);
+    fetchHistory(1, value);
+  };
 
   const totalPages = historyData ? Math.ceil(historyData.totalCount / 15) || 1 : 1;
   const records = historyData && Array.isArray(historyData.records) ? historyData.records : [];
@@ -50,11 +67,32 @@ export default function HistoryPage() {
         </div>
 
         <button
-          onClick={() => fetchHistory(page)}
+          onClick={() => fetchHistory(page, destEnv)}
           className="flex items-center justify-center w-10 h-10 border border-slate-200/50 bg-white/70 rounded-lg hover:bg-white transition-all text-slate-500 shadow-sm"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Target Environment Selector Row */}
+      <div className="flex items-center gap-3 bg-white/60 border border-slate-200/50 p-3.5 rounded-xl shadow-sm text-sm">
+        <span className="text-slate-500 font-bold uppercase text-xs tracking-wider">Target Environment:</span>
+        <CustomSelect
+          value={destEnv}
+          onChange={handleEnvChange}
+          className="w-44"
+          options={[
+            { value: "Dev", label: "Dev", sublabel: "Development environment" },
+            { value: "QA", label: "QA", sublabel: "Quality assurance environment" },
+            { value: "UAT", label: "UAT", sublabel: "User acceptance testing" },
+            { value: "Production", label: "Production", sublabel: "⚠ Live production environment" },
+          ]}
+        />
+        {environments && (
+          <span className="text-xs text-slate-400 font-mono">
+            Host: <span className="text-slate-650 font-medium">{environments[destEnv.toLowerCase()]?.host || "Not configured"}</span>
+          </span>
+        )}
       </div>
 
       {/* Error alert banner */}

@@ -42,11 +42,10 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                isActive
-                  ? "text-indigo-650 bg-white/90 shadow-sm border border-slate-100/50"
-                  : "text-slate-600 hover:text-indigo-600 hover:bg-white/85 hover:shadow-sm"
-              }`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${isActive
+                ? "text-indigo-650 bg-white/90 shadow-sm border border-slate-100/50"
+                : "text-slate-600 hover:text-indigo-600 hover:bg-white/85 hover:shadow-sm"
+                }`}
             >
               <Icon className={`w-4 h-4 ${isActive ? "text-indigo-550" : "text-slate-400"}`} />
               {link.label}
@@ -56,11 +55,15 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer Status */}
-      <div className="p-4 border-t border-slate-200/50 bg-white/20">
+      <div className="p-4 border-t border-slate-200/50 bg-white/20 space-y-2">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           Orchestrator Ready
         </div>
+        <p className="text-[10px] text-slate-400 leading-snug">
+          Developed by{" "}
+          <span className="font-semibold text-slate-500">Nitesh Kumar</span>
+        </p>
       </div>
     </aside>
   );

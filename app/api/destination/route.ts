@@ -11,24 +11,40 @@ function loadConfig() {
       const data = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
       return JSON.parse(data);
     }
-  } catch (err) {}
+  } catch (err) { }
   return { source: null, destination: null };
 }
 
-function getDestinationConfig() {
+function getDestinationConfig(envName?: string | null) {
   const config = loadConfig();
+
+  // If a specific environment name is specified, lookup those credentials
+  if (envName) {
+    const name = envName.toUpperCase();
+    const envHost = process.env[`SCT_${name}_HOST`];
+    const envClientId = process.env[`SCT_${name}_CLIENT_ID`];
+    const envClientSecret = process.env[`SCT_${name}_CLIENT_SECRET`];
+    if (envHost && envClientId && envClientSecret) {
+      return {
+        host: envHost,
+        clientId: envClientId,
+        clientSecret: envClientSecret,
+      };
+    }
+  }
+
   if (config.destination && config.destination.host) {
     // Resolve real secrets from process.env if they were masked ("********")
     const dest = { ...config.destination };
-    if (dest.clientSecret === "********" && process.env.SCT_DEST_CLIENT_SECRET) {
-      dest.clientSecret = process.env.SCT_DEST_CLIENT_SECRET;
+    if (dest.clientSecret === "********") {
+      dest.clientSecret = process.env.SCT_DEST_CLIENT_SECRET || process.env.SCT_QA_CLIENT_SECRET || "";
     }
     return dest;
   }
   return {
-    host: process.env.SCT_DEST_HOST || "",
-    clientId: process.env.SCT_DEST_CLIENT_ID || "",
-    clientSecret: process.env.SCT_DEST_CLIENT_SECRET || "",
+    host: process.env.SCT_DEST_HOST || process.env.SCT_QA_HOST || "",
+    clientId: process.env.SCT_DEST_CLIENT_ID || process.env.SCT_QA_CLIENT_ID || "",
+    clientSecret: process.env.SCT_DEST_CLIENT_SECRET || process.env.SCT_QA_CLIENT_SECRET || "",
   };
 }
 
@@ -38,10 +54,11 @@ export async function GET(req: NextRequest) {
     const action = searchParams.get("action");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const size = parseInt(searchParams.get("size") || "50", 10);
+    const env = searchParams.get("env");
 
-    const destination = getDestinationConfig();
+    const destination = getDestinationConfig(env);
     if (!destination.host || !destination.clientId || !destination.clientSecret) {
-      return NextResponse.json({ error: "Destination environment variables (SCT_DEST_*) not configured" }, { status: 400 });
+      return NextResponse.json({ error: `Destination environment variables for '${env || "QA"}' not configured` }, { status: 400 });
     }
 
     const client = new ItemTransferClient(destination);
@@ -72,16 +89,22 @@ export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
+    const env = searchParams.get("env");
 
-    const destination = getDestinationConfig();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (e) { }
+
+    const finalEnv = env || body.env;
+    const destination = getDestinationConfig(finalEnv);
     if (!destination.host || !destination.clientId || !destination.clientSecret) {
-      return NextResponse.json({ error: "Destination environment variables (SCT_DEST_*) not configured" }, { status: 400 });
+      return NextResponse.json({ error: `Destination environment variables for '${finalEnv || "QA"}' not configured` }, { status: 400 });
     }
 
     const client = new ItemTransferClient(destination);
 
     if (action === "consume") {
-      const body = await req.json();
       const { fileName, blobName, database } = body;
       const db = database || "master";
 
@@ -90,7 +113,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "retry") {
-      const body = await req.json();
       const { database } = body;
       const db = database || "master";
 
@@ -109,14 +131,15 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
     const name = searchParams.get("name");
+    const env = searchParams.get("env");
 
     if (!name) {
       return NextResponse.json({ error: "Source name is required" }, { status: 400 });
     }
 
-    const destination = getDestinationConfig();
+    const destination = getDestinationConfig(env);
     if (!destination.host || !destination.clientId || !destination.clientSecret) {
-      return NextResponse.json({ error: "Destination environment variables (SCT_DEST_*) not configured" }, { status: 400 });
+      return NextResponse.json({ error: `Destination environment variables for '${env || "QA"}' not configured` }, { status: 400 });
     }
 
     const client = new ItemTransferClient(destination);

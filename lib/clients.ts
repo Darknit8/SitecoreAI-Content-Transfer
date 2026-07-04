@@ -276,8 +276,8 @@ export class ItemTransferClient {
         id: t.Id,
         sourceName: t.SourceName,
         databaseName: t.DatabaseName,
-        state: t.State as ItemTransferState,
-        consumeDate: t.ConsumeDate
+        state: (t.State || t.TransferState || "Unknown") as ItemTransferState,
+        consumeDate: t.ConsumeDate || t.ConsumedDate
       }))
     };
   }
@@ -312,13 +312,13 @@ export class ItemTransferClient {
       id: raw.Id,
       sourceName: raw.SourceName,
       databaseName: raw.DatabaseName,
-      state: raw.State as ItemTransferState,
-      consumeDate: raw.ConsumeDate,
-      totalItems: raw.TotalItems,
-      processedItems: raw.ProcessedItems,
-      skippedItems: raw.SkippedItems,
-      failedItems: raw.FailedItems,
-      errors: raw.Errors || [],
+      state: (raw.State || raw.TransferState || "Unknown") as ItemTransferState,
+      consumeDate: raw.ConsumeDate || raw.ConsumedDate,
+      totalItems: raw.TotalItems || raw.TotalItemsCount || 0,
+      processedItems: raw.ProcessedItems || raw.TransferredItemsCount || 0,
+      skippedItems: raw.SkippedItems || 0,
+      failedItems: raw.FailedItems || 0,
+      errors: raw.Errors || raw.ValidationErrors || [],
       warnings: raw.Warnings || []
     };
   }
@@ -417,9 +417,9 @@ export class ItemTransferClient {
       pageSize: raw.PageSize,
       totalCount: raw.TotalCount,
       sources: (raw.Sources || []).map((src: any) => ({
-        name: src.Name,
-        size: src.Size,
-        lastModified: src.LastModified
+        name: src.FileName || src.Name || "",
+        size: src.Size || 0,
+        lastModified: src.LastModified || new Date().toISOString()
       }))
     };
   }
@@ -444,17 +444,34 @@ export class ItemTransferClient {
       throw new SitecoreApiError(`Get history failed: ${response.statusText}`, response.status, path, errText);
     }
     const raw = await response.json();
+    const records = raw.Sources || raw.Records || [];
     return {
       page: raw.Page,
       pageSize: raw.PageSize,
       totalCount: raw.TotalCount,
-      records: (raw.Records || []).map((rec: any) => ({
-        id: rec.Id,
-        sourceName: rec.SourceName,
-        databaseName: rec.DatabaseName,
-        state: rec.State,
-        consumeDate: rec.ConsumeDate
-      }))
+      records: records.map((rec: any) => {
+        let state = rec.State || rec.TransferState;
+        if (!state && Array.isArray(rec.Events) && rec.Events.length > 0) {
+          const sortedEvents = [...rec.Events].sort(
+            (a, b) => new Date(a.Date).getTime() - new Date(b.Date).getTime()
+          );
+          const latestEvent = sortedEvents[sortedEvents.length - 1];
+          if (latestEvent.Name === "Finished") {
+            state = "Completed";
+          } else if (latestEvent.Name === "Failed") {
+            state = "Failed";
+          } else {
+            state = latestEvent.Name;
+          }
+        }
+        return {
+          id: rec.Name || rec.Id || "unknown",
+          sourceName: rec.SourceName || "",
+          databaseName: rec.DatabaseName || "master",
+          state: state || "Completed",
+          consumeDate: rec.ConsumeDate || rec.ConsumedDate || new Date().toISOString()
+        };
+      })
     };
   }
 

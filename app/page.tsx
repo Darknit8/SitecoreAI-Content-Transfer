@@ -47,62 +47,43 @@ const pipelineSteps = [
   { step: "4", label: "Monitor", detail: "Verify execution status in Transfer History." },
 ];
 
-const apiLinks = [
-  {
-    label: "Content Transfer API — Overview",
-    href: "https://api-docs.sitecore.com/sai/content-transfer/section/authorization/create-an-automation-client",
-    description: "Official Sitecore XP content transfer documentation",
-  },
-  {
-    label: "Item Transfer REST API Reference",
-    href: "https://api-docs.sitecore.com/sai/item-transfer",
-    description: "Endpoints for exporting & ingesting items via REST",
-  },
-  {
-    label: "Chunk Streaming Protocol",
-    href: "https://api-docs.sitecore.com/sai/content-transfer/content-transfer-api/contenttransfer_savechunkasync",
-    description: "How chunked .raif packages are built and consumed",
-  },
-  {
-    label: "Identity Server — OAuth2 / Client Credentials",
-    href: "https://api-docs.sitecore.com/sai/content-transfer/section/authorization/request-a-jwt",
-    description: "Configuring Client ID & Client Secret for API access",
-  }
-];
+export default function DashboardOverview() {
+  const router = useRouter();
+  const [runs, setRuns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const fetchRuns = () => {
-  setLoading(true);
-  fetch("/api/transfer")
-    .then((res) => res.json())
-    .then((data) => {
-      const sorted = Array.isArray(data)
-        ? data.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-        : [];
-      setRuns(sorted);
-      setLoading(false);
-    })
-    .catch(() => setLoading(false));
-};
-
-useEffect(() => {
-  fetchRuns();
-  // Poll active runs every 5 seconds
-  const interval = setInterval(() => {
+  const fetchRuns = () => {
+    setLoading(true);
     fetch("/api/transfer")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) {
-          const sorted = data.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-          setRuns(sorted);
-        }
+        const sorted = Array.isArray(data)
+          ? data.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+          : [];
+        setRuns(sorted);
+        setLoading(false);
       })
-      .catch(() => { });
-  }, 5000);
+      .catch(() => setLoading(false));
+  };
 
-  return () => clearInterval(interval);
-}, []);
+  useEffect(() => {
+    fetchRuns();
+    // Poll active runs every 5 seconds
+    const interval = setInterval(() => {
+      fetch("/api/transfer")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            const sorted = data.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+            setRuns(sorted);
+          }
+        })
+        .catch(() => {});
+    }, 5000);
 
-export default function DashboardOverview() {
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="space-y-10">
       {/* Header */}
@@ -126,10 +107,10 @@ export default function DashboardOverview() {
 
       {/* Main Content Layout */}
       <div className="grid lg:grid-cols-3 gap-8">
-
+        
         {/* Left Column (Runs + About) */}
         <div className="lg:col-span-2 space-y-8">
-
+          
           {/* Active & Recent Migration Pipelines */}
           <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200/50 pb-3">
@@ -260,7 +241,7 @@ export default function DashboardOverview() {
 
         {/* Right Column (Quick Reference Only) */}
         <div>
-
+          
           {/* Quick Reference & API Links */}
           <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
             <div className="flex items-center gap-3 border-b border-slate-200/50 pb-4">
@@ -286,24 +267,6 @@ export default function DashboardOverview() {
                 </a>
               ))}
             </div>
-            <h2 className="text-lg font-bold text-slate-800">Quick Reference</h2>
-          </div>
-          <div className="space-y-2">
-            {apiLinks.map(({ label, href, description }) => (
-              <a
-                key={href}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-200/50 hover:border-cyan-200 hover:bg-cyan-50/30 transition-all group"
-              >
-                <div>
-                  <span className="block text-xs font-bold text-slate-700 group-hover:text-cyan-700 transition-colors leading-snug">{label}</span>
-                  <span className="block text-[10px] text-slate-400 mt-0.5 leading-snug">{description}</span>
-                </div>
-                <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-cyan-500 transition-colors flex-shrink-0 mt-0.5" />
-              </a>
-            ))}
           </div>
 
         </div>

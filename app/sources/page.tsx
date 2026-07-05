@@ -203,7 +203,7 @@ export default function SourcesPage() {
     try {
       const res = await fetch(`/api/destination?action=consume&env=${destEnv}`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "x-auth-password": passwordToUse
         },
@@ -266,7 +266,7 @@ export default function SourcesPage() {
     try {
       const res = await fetch(`/api/destination?action=retry&env=${destEnv}`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "x-auth-password": passwordToUse
         },

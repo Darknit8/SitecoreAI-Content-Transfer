@@ -3,9 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ArrowRightLeft, Database, History, Settings } from "lucide-react";
+import { LayoutDashboard, ArrowRightLeft, Database, History, Settings, X } from "lucide-react";
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const links = [
@@ -17,23 +22,38 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 glass-sidebar flex flex-col fixed top-0 bottom-0 left-0 z-20">
-      {/* Logo */}
-      <div className="h-16 px-6 border-b border-slate-200/50 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs tracking-wider shadow-md shadow-indigo-500/20">
-          SCT
+    <aside
+      className={`w-64 glass-sidebar flex flex-col fixed top-0 bottom-0 left-0 z-40 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
+      {/* Logo Area */}
+      <div className="h-16 px-6 border-b border-slate-200/50 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs tracking-wider shadow-md shadow-indigo-500/20">
+            SCT
+          </div>
+          <div>
+            <span className="font-bold tracking-tight text-sm text-slate-800">SitecoreAI</span>
+            <span className="block text-xs text-slate-400">Content Transfer</span>
+          </div>
         </div>
-        <div>
-          <span className="font-bold tracking-tight text-sm text-slate-800">SitecoreAI</span>
-          <span className="block text-xs text-slate-400">Content Transfer</span>
-        </div>
+
+        {/* Mobile Close Button */}
+        <button
+          onClick={onClose}
+          className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
+          aria-label="Close menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Links */}
       <nav className="flex-1 px-4 py-6 space-y-1">
         {links.map((link) => {
           const Icon = link.icon;
-          // Check if active: exact match for home, or startsWith for subroutes (e.g. /transfer/new, /transfer/123)
+          // Check if active: exact match for home, or startsWith for subroutes
           const isActive = link.href === "/"
             ? pathname === "/"
             : pathname.startsWith(link.href) || (link.href === "/transfer/new" && pathname.startsWith("/transfer"));
@@ -42,10 +62,12 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${isActive
-                ? "text-indigo-650 bg-white/90 shadow-sm border border-slate-100/50"
-                : "text-slate-600 hover:text-indigo-600 hover:bg-white/85 hover:shadow-sm"
-                }`}
+              onClick={onClose}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                isActive
+                  ? "text-indigo-650 bg-white/90 shadow-sm border border-slate-100/50"
+                  : "text-slate-600 hover:text-indigo-600 hover:bg-white/85 hover:shadow-sm"
+              }`}
             >
               <Icon className={`w-4 h-4 ${isActive ? "text-indigo-550" : "text-slate-400"}`} />
               {link.label}

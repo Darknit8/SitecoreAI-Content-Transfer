@@ -8,6 +8,7 @@ The **Sitecore Content Transfer Console** is a modern, responsive Next.js applic
 
 The migration process works by chunking, encrypting, and compressing content from the source environment into `.raif` packages, streaming them to the destination, and invoking the destination's installation/consumption engine.
 
+
 ```mermaid
 flowchart TD
     subgraph Source ["Source Sitecore Environment"]
@@ -36,13 +37,32 @@ flowchart TD
     Store -.->|7. Stream real-time progress| SSE
 ```
 
+
 ### High-Level Stage Execution
 
-1. **Initialization:** The orchestrator authenticates with the Source and Destination using JWTs.
+1. **Initialization:** The orchestrator authenticates with the Source and Destination Sitecore AI environments using JWTs.
 2. **Packaging:** A Content Transfer operation is created at the source for specified paths (e.g. `/sitecore/content/Home`).
 3. **Data Streaming:** Telemetry chunks are pulled sequentially from the source environment and piped/uploaded to the destination.
 4. **Reconstruction:** Chunks are compiled into `.raif` transfer files on the destination filesystem or blob store.
 5. **Consumption:** The destination's Item Transfer API is triggered to parse the `.raif` package and install the items into the target database.
+
+---
+
+## 🛡️ Security Gatekeepers & Isolation
+
+To protect live customer environments and prevent accidental database updates, the console implements multiple layers of authorization and verification:
+
+### 1. Production Isolation & Risk Warning
+* **Risk Warnings**: Triggering any operation or loading a view targeting a `Production` environment warns the user with a distinct prompt highlighting the potential load on authoring servers.
+* **Standard vs. Admin Verification**: Dev, QA, and UAT workloads require a standard password key (`SCT_STANDARD_PASSWORD`). All operations targeting Production require an elevated administrative password key (`SCT_ADMIN_PASSWORD`).
+
+### 2. Client-Side Check-and-Block Validation
+* Upon changing host targets to Production or loading a production route, a verification modal intercepts the user to request the environment key.
+* The frontend immediately executes a validation dry-run with the backend console. If successful, the verified key is stored in React memory and added to the `x-auth-password` header for subsequent transactions (Consuming, Deleting, Retrying). If validation fails, dashboard rendering is blocked.
+
+### 3. Server-Sent Events (SSE) & Polling Fallback
+* Live migrations stream real-time events through an SSE connection (`/api/transfer?sse=true`).
+* If a corporate firewall or proxy blocks persistent SSE streams, the console automatically switches to an optimized `1.5s` polling loop fallback, ensuring uninterrupted state monitoring.
 
 ---
 
@@ -80,12 +100,20 @@ Create a file named `.env.local` in the project root to configure credentials. B
 
 | Environment Variable | Description | Default / Example |
 |----------------------|-------------|-------------------|
-| `SCT_SOURCE_HOST` | Hostname of the Source Authoring environment. | `source.mock` (Mock mode) |
-| `SCT_SOURCE_CLIENT_ID` | OAuth Client ID for the source environment. | `mock-source-client-id` |
-| `SCT_SOURCE_CLIENT_SECRET` | OAuth Client Secret for the source environment. | `mock-source-client-secret` |
-| `SCT_DEST_HOST` | Hostname of the Destination Authoring environment. | `dest.mock` (Mock mode) |
-| `SCT_DEST_CLIENT_ID` | OAuth Client ID for the destination environment. | `mock-dest-client-id` |
-| `SCT_DEST_CLIENT_SECRET` | OAuth Client Secret for the destination environment. | `mock-dest-client-secret` |
+| `SCT_DEV_HOST` | Hostname of the Development Sitecore AI environment. | `xmc-source.mock` (Mock mode) |
+| `SCT_DEV_CLIENT_ID` | OAuth Client ID for the Dev environment. | `mock-source-client-id` |
+| `SCT_DEV_CLIENT_SECRET` | OAuth Client Secret for the Dev environment. | `mock-source-client-secret` |
+| `SCT_QA_HOST` | Hostname of the QA Sitecore AI environment. | `xmc-dest.mock` (Mock mode) |
+| `SCT_QA_CLIENT_ID` | OAuth Client ID for the QA environment. | `mock-dest-client-id` |
+| `SCT_QA_CLIENT_SECRET` | OAuth Client Secret for the QA environment. | `mock-dest-client-secret` |
+| `SCT_UAT_HOST` | Hostname of the UAT Sitecore AI environment. | `uat.mock` (Mock mode) |
+| `SCT_UAT_CLIENT_ID` | OAuth Client ID for the UAT environment. | `mock-uat-client-id` |
+| `SCT_UAT_CLIENT_SECRET` | OAuth Client Secret for the UAT environment. | `mock-uat-client-secret` |
+| `SCT_PRODUCTION_HOST` | Hostname of the Production Sitecore AI environment. | `production.mock` (Mock mode) |
+| `SCT_PRODUCTION_CLIENT_ID` | OAuth Client ID for the Production environment. | `mock-production-client-id` |
+| `SCT_PRODUCTION_CLIENT_SECRET` | OAuth Client Secret for the Production environment. | `mock-production-client-secret` |
+| `SCT_ADMIN_PASSWORD` | Elevated security verification password for Production operations. | `admin` |
+| `SCT_STANDARD_PASSWORD` | Standard security verification password for Dev, QA, and UAT operations. | `admin` |
 
 > [!NOTE]
 > Environment variables can be inspected live inside the web console under the **Environment Settings** tab. Credentials can also be configured dynamically at runtime using a [config.local.json](file:///d:/Antigravity/Sitecore%20Content%20Transfer/config.local.json) file.
@@ -123,27 +151,156 @@ The console is organized into standard Next.js folders:
 
 ---
 
-## 🛠️ API Reference Summary
+## 🔌 API Reference & Data Contracts
 
-The application consumes two primary API endpoints from SitecoreAI:
+To orchestrate the content pipeline, the Next.js console executes the following APIs sequentially.
 
-### 1. Content Transfer API (Source)
+### API Execution Sequence
+![API Execution Sequence Timeline](public/images/api_execution_sequence.png)
 
-- **Create a Content Transfer Operation:** `POST /sitecore/api/content/transfer/v1/transfers`
-- **Check Packaging Status:** `GET /sitecore/api/content/transfer/v1/transfers/{transferId}/status`
-- **Retrieve Chunk Data:** `GET /sitecore/api/content/transfer/v1/transfers/{transferId}/chunks/{chunkId}`
-- **Complete/Assemble Chunk Sets:** `POST /sitecore/api/content/transfer/v1/transfers/{transferId}/chunks/complete`
-- **Cleanup Operation:** `DELETE /sitecore/api/content/transfer/v1/transfers/{transferId}`
+---
 
-### 2. Item Transfer API (Destination)
+### Phase 1: Sitecore Content Transfer API (Source Sitecore AI)
 
-- **Get Historical Consumptions:** `GET /sitecore/api/item/transfer/v1/history`
-- **List Available `.raif` Packages:** `GET /sitecore/api/item/transfer/v1/sources`
-- **Install (Consume) Package:** `POST /sitecore/api/item/transfer/v1/consume`
-- **Monitor Import Status:** `GET /sitecore/api/item/transfer/v1/transfers/{id}`
-- **Retry Failed Imports:** `POST /sitecore/api/item/transfer/v1/retry`
+#### 1. Initiate Transfer Session (`POST`)
+* **Endpoint**: `/sitecore/api/content/transfer/v1/transfers`
+* **Parameters**:
+  | Type | Parameter | Data Type | Required | Description |
+  |---|---|---|---|---|
+  | **Header** | `Authorization` | `string` | Yes | `Bearer <JWT_TOKEN>` for OAuth authorization |
+  | **Header** | `Content-Type` | `string` | Yes | Must be `application/json` |
+  | **Body** | `TransferId` | `string (UUID)` | Yes | Client-generated unique identifier for the transaction |
+  | **Body** | `Configuration.Database` | `string` | Yes | Target Sitecore database, usually `master` or `web` |
+  | **Body** | `Configuration.DataTrees` | `array` | Yes | List of content nodes to package |
+  | **Body** | `Configuration.DataTrees[].ItemPath` | `string` | Yes | Absolute node path, e.g. `/sitecore/content/Home` |
+  | **Body** | `Configuration.DataTrees[].Scope` | `string` | Yes | Scope: `SingleItem` or `ItemAndDescendants` |
+  | **Body** | `Configuration.DataTrees[].MergeStrategy` | `string` | Yes | Conflict mode: `OverrideExistingItem` or `KeepExistingItem` |
+* **Request Payload**:
+```json
+{
+  "Configuration": {
+    "DataTrees": [
+      {
+        "ItemPath": "/sitecore/content/Home",
+        "Scope": "ItemAndDescendants",
+        "MergeStrategy": "OverrideExistingItem"
+      }
+    ],
+    "Database": "master"
+  },
+  "TransferId": "f3b07384-d113-4c4f-9c03-51828f74d75b"
+}
+```
+* **Response**: `202 Accepted`
 
-For a detailed walkthrough, sample payloads, and payload attributes, refer to the [api-guide.md](file:///d:/Antigravity/Sitecore%20Content%20Transfer/context/api-guide.md) context file.
+#### 2. Get Chunk Assembly Status (`GET`)
+* **Endpoint**: `/sitecore/api/content/transfer/v1/transfers/{transferId}/status`
+* **Parameters**:
+  | Type | Parameter | Data Type | Required | Description |
+  |---|---|---|---|---|
+  | **Path** | `transferId` | `string (UUID)` | Yes | The ID of the initiated transfer operation |
+* **Response Payload**:
+```json
+{
+  "State": "Completed",
+  "ChunkSetsMetadata": [
+    {
+      "ChunkSetId": "cba98765-4321-4321-4321-876543210123",
+      "ChunkCount": 5,
+      "TotalItemCount": 120
+    }
+  ]
+}
+```
+
+#### 3. Stream Binary Chunk (`GET`)
+* **Endpoint**: `/sitecore/api/content/transfer/v1/transfers/{transferId}/chunksets/{chunksetId}/chunks/{chunkId}`
+* **Parameters**:
+  | Type | Parameter | Data Type | Required | Description |
+  |---|---|---|---|---|
+  | **Path** | `transferId` | `string (UUID)` | Yes | The ID of the current transfer operation |
+  | **Path** | `chunksetId` | `string (UUID)` | Yes | The ID of the target chunk set |
+  | **Path** | `chunkId` | `number` | Yes | Sequential numerical index of the chunk (`0` to `N-1`) |
+  | **Header** | `Accept` | `string` | Yes | Must be `application/octet-stream` |
+* **Response**: Raw binary data chunk. Key metadata is extracted from response headers (`ItemsProcessed`, `ItemsSkipped`, `IsMedia`).
+
+#### 4. Complete Chunkset (`POST`)
+* **Endpoint**: `/sitecore/api/content/transfer/v1/transfers/{transferId}/chunksets/{chunksetId}/complete`
+* **Parameters**:
+  | Type | Parameter | Data Type | Required | Description |
+  |---|---|---|---|---|
+  | **Path** | `transferId` | `string (UUID)` | Yes | The ID of the transfer operation |
+  | **Path** | `chunksetId` | `string (UUID)` | Yes | The ID of the compiled chunk set |
+* **Response**:
+```json
+{
+  "ContentTransferFileName": "export_home_2026.raif"
+}
+```
+
+---
+
+### Phase 2: Sitecore Item Transfer API (Destination Sitecore AI)
+
+#### 1. List Available Sources (`GET`)
+* **Endpoints**: 
+  * `/sources/blobs?page=1&pageSize=50` (Azure Blob container)
+  * `/sources/files?page=1&pageSize=50` (CMS local filesystem)
+* **Parameters**:
+  | Type | Parameter | Data Type | Required | Description |
+  |---|---|---|---|---|
+  | **Query** | `page` | `number` | No | Page number for pagination (defaults to `1`) |
+  | **Query** | `pageSize` | `number` | No | Number of records per page (defaults to `50`) |
+* **Response Payload**:
+```json
+{
+  "Page": 1,
+  "PageSize": 50,
+  "TotalCount": 1,
+  "Sources": [
+    {
+      "Name": "export_home_2026.raif",
+      "Size": 15204352,
+      "BlobState": "Transferred"
+    }
+  ]
+}
+```
+
+#### 2. Trigger Database Ingestion (`POST`)
+* **Endpoint**: `/transfers/databases/{databaseName}/sources`
+* **Parameters**:
+  | Type | Parameter | Data Type | Required | Description |
+  |---|---|---|---|---|
+  | **Path** | `databaseName` | `string` | Yes | Target database to ingest items, e.g., `master` or `web` |
+  | **Query** | `blobName` | `string` | No* | Name of the file inside Blob Storage (Required if `fileName` omitted) |
+  | **Query** | `fileName` | `string` | No* | Name of the file inside Filesystem (Required if `blobName` omitted) |
+  | **Header** | `Authorization` | `string` | Yes | `Bearer <JWT_TOKEN>` for OAuth authorization |
+* **Response**: `202 Accepted` (includes `Location` header to poll progress).
+
+#### 3. Query Ingestion Details (`GET`)
+* **Endpoint**: `/transfers/{transferId}`
+* **Parameters**:
+  | Type | Parameter | Data Type | Required | Description |
+  |---|---|---|---|---|
+  | **Path** | `transferId` | `string` | Yes | The ID of the ingestion operation (returned in headers/history) |
+* **Response Payload**:
+```json
+{
+  "Id": "hist.ingest.export2026",
+  "SourceName": "export_home_2026.raif",
+  "DatabaseName": "master",
+  "State": "Finished",
+  "TotalItems": 120,
+  "ProcessedItems": 120,
+  "SkippedItems": 0,
+  "FailedItems": 0,
+  "Errors": [],
+  "Warnings": []
+}
+```
+
+For a detailed walkthrough, sample payloads, and payload attributes, refer to the [api-guide.md](context/api-guide.md) context file.
 
 ---
 

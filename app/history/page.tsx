@@ -124,7 +124,7 @@ export default function HistoryPage() {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => setEnvironments(data))
-      .catch(() => {});
+      .catch(() => { });
 
     if (savedDest === "Production") {
       setPendingEnv("Production");
@@ -215,7 +215,7 @@ export default function HistoryPage() {
       <div className={`flex items-center gap-3 border p-3.5 rounded-xl shadow-sm text-sm transition-colors ${destEnv === "Production" ? "bg-rose-50/60 border-rose-200/50" : "bg-white/60 border-slate-200/50"}`}>
         <span className="text-slate-500 font-bold uppercase text-xs tracking-wider">Target Environment:</span>
         <CustomSelect
-          value={destEnv}
+          value={pendingEnv ?? destEnv}
           onChange={handleEnvChange}
           className="w-44"
           options={[

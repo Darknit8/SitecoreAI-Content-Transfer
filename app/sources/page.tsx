@@ -185,18 +185,59 @@ export default function SourcesPage() {
     fetchSources(prevEnv, "");
   };
 
-  const handleConsume = async (name: string, isBlob: boolean) => {
+  // ── Guard: intercept action if Production ──────────────────────────────
+  const guardAction = (action: PendingAction) => {
+    if (destEnv === "Production") {
+      setAuthError(null);
+      setPendingAction(action);
+    } else {
+      executeAction(action);
+    }
+  };
+
+  const handleAuthConfirm = async (password: string) => {
+    const adminPassword = process.env.NEXT_PUBLIC_SCT_ADMIN_PASSWORD_HINT ?? "";
+    // We validate the password server-side by making the actual API call;
+    // here just pass it along and let the server reject if wrong.
+    setAuthError(null);
+    if (!pendingAction) return;
+
+    // Temporarily verify via a dry-run: just execute and catch auth errors
+    const action = pendingAction;
+    setPendingAction(null);
+    await executeAction(action, password);
+  };
+
+  const handleAuthCancel = () => {
+    setPendingAction(null);
+    setAuthError(null);
+  };
+
+  // ── Execute the actual API call ─────────────────────────────────────────
+  const executeAction = async (action: PendingAction, adminPassword?: string) => {
     setStatus(null);
+
+    if (action.type === "consume") {
+      await runConsume(action.name, action.isBlob, adminPassword);
+    } else if (action.type === "delete") {
+      await runDelete(action.name, action.isBlob, adminPassword);
+    } else if (action.type === "retry") {
+      await runRetry(adminPassword);
+    }
+  };
+
+  const runConsume = async (name: string, isBlob: boolean, adminPassword?: string) => {
     try {
       const res = await fetch(`/api/destination?action=consume&env=${destEnv}`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "x-auth-password": verifiedPassword
         },
         body: JSON.stringify({
           [isBlob ? "blobName" : "fileName"]: name,
           database: "master",
+          ...(adminPassword ? { adminPassword } : {}),
         }),
       });
       const data = await res.json();
@@ -204,15 +245,19 @@ export default function SourcesPage() {
         setStatus({ type: "success", message: `Ingestion scheduled successfully for ${name}.` });
         fetchSources(destEnv);
       } else {
-        throw new Error(data.error || "Failed to trigger ingestion.");
+        if (res.status === 403 && destEnv === "Production") {
+          setAuthError(data.error || "Invalid admin password.");
+          setPendingAction({ type: "consume", name, isBlob });
+        } else {
+          throw new Error(data.error || "Failed to trigger ingestion.");
+        }
       }
     } catch (err) {
       setStatus({ type: "error", message: (err as Error).message });
     }
   };
 
-  const proceedDelete = async (name: string, isBlob: boolean) => {
-    setStatus(null);
+  const runDelete = async (name: string, isBlob: boolean, adminPassword?: string) => {
     try {
       const res = await fetch(`/api/destination?action=${isBlob ? "blob" : "file"}&name=${encodeURIComponent(name)}&env=${destEnv}`, {
         method: "DELETE",
@@ -232,12 +277,11 @@ export default function SourcesPage() {
     }
   };
 
-  const handleRetryAll = async () => {
-    setStatus(null);
+  const runRetry = async (adminPassword?: string) => {
     try {
       const res = await fetch(`/api/destination?action=retry&env=${destEnv}`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "x-auth-password": verifiedPassword
         },
@@ -268,7 +312,7 @@ export default function SourcesPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={handleRetryAll}
+            onClick={() => guardAction({ type: "retry" })}
             className="flex items-center gap-2 border border-slate-200/50 bg-white/70 hover:bg-white px-4 py-2 rounded-lg text-sm transition-all text-slate-700 shadow-sm font-semibold"
           >
             Retry Failed Imports
@@ -365,7 +409,7 @@ export default function SourcesPage() {
                       <div className="flex items-center gap-2">
                         {!isTransferred && (
                           <button
-                            onClick={() => handleConsume(blob.name, true)}
+                            onClick={() => guardAction({ type: "consume", name: blob.name, isBlob: true })}
                             className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
                           >
                             <Play className="w-3 h-3 fill-current" />
@@ -425,7 +469,7 @@ export default function SourcesPage() {
                       <div className="flex items-center gap-2">
                         {!isTransferred && (
                           <button
-                            onClick={() => handleConsume(file.name, false)}
+                            onClick={() => guardAction({ type: "consume", name: file.name, isBlob: false })}
                             className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
                           >
                             <Play className="w-3 h-3 fill-current" />

@@ -107,11 +107,16 @@ export async function POST(req: NextRequest) {
 
     const finalEnv = env || body.env;
     const reqPassword = req.headers.get("x-auth-password") || searchParams.get("authPassword") || searchParams.get("adminPassword") || body.adminPassword || body.authPassword;
-    const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
 
     if (finalEnv && finalEnv.toUpperCase() === "PRODUCTION") {
+      const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
       if (reqPassword !== adminPassword) {
         return NextResponse.json({ error: "Invalid authorization password. Access denied for Production environment." }, { status: 403 });
+      }
+    } else {
+      const standardPassword = process.env.SCT_STANDARD_PASSWORD || "Standard123!";
+      if (reqPassword !== standardPassword) {
+        return NextResponse.json({ error: "Invalid authorization password. Access denied." }, { status: 403 });
       }
     }
 
@@ -156,11 +161,16 @@ export async function DELETE(req: NextRequest) {
     }
 
     const reqPassword = req.headers.get("x-auth-password") || searchParams.get("authPassword") || searchParams.get("adminPassword");
-    const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
 
     if (env && env.toUpperCase() === "PRODUCTION") {
+      const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
       if (reqPassword !== adminPassword) {
         return NextResponse.json({ error: "Invalid authorization password. Access denied for Production environment." }, { status: 403 });
+      }
+    } else {
+      const standardPassword = process.env.SCT_STANDARD_PASSWORD || "Standard123!";
+      if (reqPassword !== standardPassword) {
+        return NextResponse.json({ error: "Invalid authorization password. Access denied." }, { status: 403 });
       }
     }
 

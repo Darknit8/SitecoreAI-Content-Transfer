@@ -180,16 +180,21 @@ export default function TransferDetailPage() {
 
       {/* Wizard timeline */}
       <div className="glow-card p-6 rounded-xl bg-white/80">
-        <div className="flex justify-between items-center relative">
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-200/50 -translate-y-1/2 z-0"></div>
+        <div className="relative flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-6 lg:gap-0 pl-4 lg:pl-0">
+          {/* Vertical connection line for mobile */}
+          <div className="absolute left-9 top-4 bottom-4 w-0.5 bg-slate-200/50 z-0 lg:hidden"></div>
+          
+          {/* Horizontal connection line for desktop */}
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-200/50 -translate-y-1/2 z-0 hidden lg:block"></div>
+          
           {steps.map((s) => {
             const isCompleted = currentStep > s.num || state === "completed";
             const isActive = currentStep === s.num && state === "running";
             
             return (
-              <div key={s.num} className="flex flex-col items-center z-10 space-y-2">
+              <div key={s.num} className="flex flex-row lg:flex-col items-center z-10 gap-4 lg:gap-2">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shrink-0 ${
                     isCompleted
                       ? "bg-emerald-600 text-white shadow-sm"
                       : isActive
@@ -200,7 +205,7 @@ export default function TransferDetailPage() {
                   {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : s.num}
                 </div>
                 <span
-                  className={`text-xs font-bold ${
+                  className={`text-xs font-bold text-left lg:text-center ${
                     isActive ? "text-indigo-600" : isCompleted ? "text-emerald-600" : "text-slate-400"
                   }`}
                 >

@@ -343,11 +343,13 @@ export default function SourcesPage() {
                   return (
                     <div
                       key={blob.name}
-                      className="flex items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40 gap-3 sm:gap-2"
                     >
-                      <div className="space-y-1">
-                        <span className="block font-semibold text-sm text-slate-700">{blob.name}</span>
-                        <div className="flex items-center gap-2">
+                      <div className="space-y-1 min-w-0">
+                        <span className="block font-semibold text-sm text-slate-700 break-all" title={blob.name}>
+                          {blob.name}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs text-slate-400">
                             Size: {(blob.size / 1024 / 1024).toFixed(2)} MB • {new Date(blob.lastModified).toLocaleDateString()}
                           </span>
@@ -362,7 +364,7 @@ export default function SourcesPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         {!isTransferred && (
                           <button
                             onClick={() => handleConsume(blob.name, true)}
@@ -403,11 +405,13 @@ export default function SourcesPage() {
                   return (
                     <div
                       key={file.name}
-                      className="flex items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg bg-white/50 border border-slate-200/40 gap-3 sm:gap-2"
                     >
-                      <div className="space-y-1">
-                        <span className="block font-semibold text-sm text-slate-700">{file.name}</span>
-                        <div className="flex items-center gap-2">
+                      <div className="space-y-1 min-w-0">
+                        <span className="block font-semibold text-sm text-slate-700 break-all" title={file.name}>
+                          {file.name}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs text-slate-400">
                             Size: {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.lastModified).toLocaleDateString()}
                           </span>
@@ -422,7 +426,7 @@ export default function SourcesPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         {!isTransferred && (
                           <button
                             onClick={() => handleConsume(file.name, false)}

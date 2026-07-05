@@ -56,6 +56,15 @@ export async function GET(req: NextRequest) {
     const size = parseInt(searchParams.get("size") || "50", 10);
     const env = searchParams.get("env");
 
+    const reqPassword = req.headers.get("x-auth-password") || searchParams.get("authPassword") || searchParams.get("adminPassword");
+    const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
+
+    if (env && env.toUpperCase() === "PRODUCTION") {
+      if (reqPassword !== adminPassword) {
+        return NextResponse.json({ error: "Invalid authorization password. Access denied for Production environment." }, { status: 403 });
+      }
+    }
+
     const destination = getDestinationConfig(env);
     if (!destination.host || !destination.clientId || !destination.clientSecret) {
       return NextResponse.json({ error: `Destination environment variables for '${env || "QA"}' not configured` }, { status: 400 });
@@ -97,6 +106,15 @@ export async function POST(req: NextRequest) {
     } catch (e) { }
 
     const finalEnv = env || body.env;
+    const reqPassword = req.headers.get("x-auth-password") || searchParams.get("authPassword") || searchParams.get("adminPassword") || body.adminPassword || body.authPassword;
+    const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
+
+    if (finalEnv && finalEnv.toUpperCase() === "PRODUCTION") {
+      if (reqPassword !== adminPassword) {
+        return NextResponse.json({ error: "Invalid authorization password. Access denied for Production environment." }, { status: 403 });
+      }
+    }
+
     const destination = getDestinationConfig(finalEnv);
     if (!destination.host || !destination.clientId || !destination.clientSecret) {
       return NextResponse.json({ error: `Destination environment variables for '${finalEnv || "QA"}' not configured` }, { status: 400 });
@@ -135,6 +153,15 @@ export async function DELETE(req: NextRequest) {
 
     if (!name) {
       return NextResponse.json({ error: "Source name is required" }, { status: 400 });
+    }
+
+    const reqPassword = req.headers.get("x-auth-password") || searchParams.get("authPassword") || searchParams.get("adminPassword");
+    const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
+
+    if (env && env.toUpperCase() === "PRODUCTION") {
+      if (reqPassword !== adminPassword) {
+        return NextResponse.json({ error: "Invalid authorization password. Access denied for Production environment." }, { status: 403 });
+      }
     }
 
     const destination = getDestinationConfig(env);

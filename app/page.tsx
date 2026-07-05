@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   Database,
@@ -14,6 +15,9 @@ import {
   GitBranch,
   Play,
   FileCode2,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 const apiLinks = [
@@ -82,8 +86,44 @@ const pipelineSteps = [
 ];
 
 export default function DashboardOverview() {
+  const router = useRouter();
+  const [runs, setRuns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRuns = () => {
+    setLoading(true);
+    fetch("/api/transfer")
+      .then((res) => res.json())
+      .then((data) => {
+        const sorted = Array.isArray(data)
+          ? data.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+          : [];
+        setRuns(sorted);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchRuns();
+    // Poll active runs every 5 seconds
+    const interval = setInterval(() => {
+      fetch("/api/transfer")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            const sorted = data.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+            setRuns(sorted);
+          }
+        })
+        .catch(() => {});
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -147,6 +187,86 @@ export default function DashboardOverview() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Active & Recent Migration Pipelines */}
+      <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
+        <div className="flex justify-between items-center border-b border-slate-200/50 pb-3">
+          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+            <ArrowRightLeft className="w-5 h-5 text-indigo-500" />
+            Active &amp; Recent Migration Pipelines
+          </h2>
+          <button
+            onClick={fetchRuns}
+            className="text-slate-400 hover:text-slate-655 transition-colors p-1 hover:bg-slate-100 rounded"
+            title="Refresh list"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+
+        {loading && runs.length === 0 ? (
+          <div className="py-8 text-center text-slate-400 text-sm">Loading pipelines...</div>
+        ) : runs.length === 0 ? (
+          <div className="py-8 text-center text-slate-400 text-sm space-y-3">
+            <p>No active or recent migration pipelines found in memory.</p>
+            <a
+              href="/transfer/new"
+              className="inline-flex items-center gap-1.5 text-indigo-500 hover:underline text-xs font-semibold"
+            >
+              Start a new migration ➜
+            </a>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {runs.map((run) => (
+              <div
+                key={run.id}
+                onClick={() => router.push(`/transfer/${run.id}`)}
+                className="flex items-center justify-between p-4 rounded-xl bg-white/50 border border-slate-200/40 hover:border-indigo-300 hover:bg-white cursor-pointer transition-all hover:shadow-md group relative overflow-hidden"
+              >
+                <div className="space-y-1.5 flex-1 pr-4">
+                  <div className="flex items-center gap-2">
+                    <span className="block text-xs font-bold font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                      {run.id.substring(0, 8)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(run.startedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-slate-700">{run.sourceEnv}</span>
+                    <span className="text-slate-400">➜</span>
+                    <span className="font-semibold text-slate-700">{run.destEnv}</span>
+                    <span className="text-slate-350">•</span>
+                    <span className="font-mono text-[10px] bg-slate-50 border border-slate-100 px-1 rounded">{run.database}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {run.state === "running" && (
+                    <span className="flex items-center gap-1.5 text-xs text-amber-700 font-bold bg-amber-50 border border-amber-250/20 px-2.5 py-1 rounded-full animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                      Active
+                    </span>
+                  )}
+                  {run.state === "completed" && (
+                    <span className="flex items-center gap-1 text-xs text-emerald-700 font-bold bg-emerald-55 border border-emerald-250/20 px-2.5 py-1 rounded-full">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      Success
+                    </span>
+                  )}
+                  {run.state === "failed" && (
+                    <span className="flex items-center gap-1 text-xs text-rose-700 font-bold bg-rose-55 border border-rose-250/20 px-2.5 py-1 rounded-full">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                      Failed
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Two-col: Nav shortcuts + Quick Reference */}

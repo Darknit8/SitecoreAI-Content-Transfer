@@ -427,7 +427,7 @@ export default function NewTransferPage() {
             ) : (
               <>
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-xl ${(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
+                  <div className={`p-3 rounded-xl ${(sourceEnv === "Production" || destEnv === "Production")
                     ? "bg-rose-50 text-rose-600"
                     : "bg-indigo-50 text-indigo-600"
                     }`}>
@@ -435,13 +435,13 @@ export default function NewTransferPage() {
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-lg font-bold text-slate-900">
-                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
+                      {(sourceEnv === "Production" || destEnv === "Production")
                         ? "Authorize Destination Changes"
                         : "Authorize Content Migration"}
                     </h3>
                     <p className="text-sm text-slate-500">
-                      {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
-                        ? "An administrator password is required to execute this high-risk or Production environment migration."
+                      {(sourceEnv === "Production" || destEnv === "Production")
+                        ? "An administrator password is required to execute this Production environment migration."
                         : "A standard migration password is required to execute this content migration pipeline."}
                     </p>
                   </div>
@@ -456,7 +456,7 @@ export default function NewTransferPage() {
 
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-slate-500 uppercase">
-                    {(scope === "ItemAndDescendants" || mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" || sourceEnv === "Production" || destEnv === "Production")
+                    {(sourceEnv === "Production" || destEnv === "Production")
                       ? "Admin Authorization Password"
                       : "Standard Authorization Password"}
                   </label>
@@ -464,6 +464,7 @@ export default function NewTransferPage() {
                     type="password"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && authPassword && !loading && executeTransfer()}
                     placeholder="Enter security password"
                     className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none transition-all shadow-sm"
                     required

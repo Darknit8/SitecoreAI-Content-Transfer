@@ -9,10 +9,12 @@ function ProductionAuthModal({
   onConfirm,
   onCancel,
   error,
+  verifying,
 }: {
   onConfirm: (password: string) => void;
   onCancel: () => void;
   error: string | null;
+  verifying: boolean;
 }) {
   const [password, setPassword] = useState("");
 
@@ -26,7 +28,7 @@ function ProductionAuthModal({
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-slate-900">Production Authorization Required</h3>
             <p className="text-sm text-slate-500">
-              This action targets the <strong className="text-rose-600">Production</strong> environment. An admin password is required to proceed.
+              An admin password is required to authorize read/write access to the <strong className="text-rose-600">Production</strong> environment.
             </p>
           </div>
         </div>
@@ -44,26 +46,28 @@ function ProductionAuthModal({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && password && onConfirm(password)}
+            onKeyDown={(e) => e.key === "Enter" && password && !verifying && onConfirm(password)}
             placeholder="Enter admin password"
             className="w-full bg-white border border-slate-200 focus:border-rose-400 focus:ring-1 focus:ring-rose-400 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none transition-all shadow-sm"
             autoFocus
+            disabled={verifying}
           />
         </div>
 
         <div className="flex gap-3 justify-end pt-2 border-t border-slate-100">
           <button
             onClick={onCancel}
+            disabled={verifying}
             className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
           >
             Cancel
           </button>
           <button
             onClick={() => onConfirm(password)}
-            disabled={!password}
+            disabled={!password || verifying}
             className="px-5 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white transition-all shadow-sm"
           >
-            Authorize
+            {verifying ? "Verifying..." : "Authorize"}
           </button>
         </div>
       </div>
@@ -72,11 +76,6 @@ function ProductionAuthModal({
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
-type PendingAction =
-  | { type: "consume"; name: string; isBlob: boolean }
-  | { type: "delete"; name: string; isBlob: boolean }
-  | { type: "retry" };
-
 export default function SourcesPage() {
   const [sources, setSources] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -86,88 +85,118 @@ export default function SourcesPage() {
   const [environments, setEnvironments] = useState<any>(null);
 
   // Production auth gate state
-  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [pendingEnv, setPendingEnv] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [prevEnv, setPrevEnv] = useState("QA");
+  const [verifiedPassword, setVerifiedPassword] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
-  const fetchSources = (envName = destEnv) => {
+  const fetchSources = (envName = destEnv, password = verifiedPassword) => {
     setLoading(true);
-    fetch(`/api/destination?action=sources&env=${envName}`)
-      .then((res) => res.json())
+    fetch(`/api/destination?action=sources&env=${envName}`, {
+      headers: {
+        "x-auth-password": password
+      }
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then(d => { throw new Error(d.error || "Failed to load sources") });
+        }
+        return res.json();
+      })
       .then((data) => {
         setSources(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        setStatus({ type: "error", message: err.message });
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
     const savedDest = localStorage.getItem("sct_dest_env") || "QA";
     setDestEnv(savedDest);
+    setPrevEnv(savedDest);
 
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => setEnvironments(data))
       .catch(() => { });
 
-    fetchSources(savedDest);
+    if (savedDest === "Production") {
+      setPendingEnv("Production");
+    } else {
+      fetchSources(savedDest);
+    }
   }, []);
 
   const handleEnvChange = (value: string) => {
-    setDestEnv(value);
-    localStorage.setItem("sct_dest_env", value);
-    fetchSources(value);
-  };
-
-  // ── Guard: intercept action if Production ──────────────────────────────
-  const guardAction = (action: PendingAction) => {
-    if (destEnv === "Production") {
+    if (value === "Production") {
+      setPrevEnv(destEnv);
+      setPendingEnv(value);
       setAuthError(null);
-      setPendingAction(action);
     } else {
-      executeAction(action);
+      setDestEnv(value);
+      setVerifiedPassword("");
+      localStorage.setItem("sct_dest_env", value);
+      fetchSources(value, "");
     }
   };
 
-  const handleAuthConfirm = async (password: string) => {
-    const adminPassword = process.env.NEXT_PUBLIC_SCT_ADMIN_PASSWORD_HINT ?? "";
-    // We validate the password server-side by making the actual API call;
-    // here just pass it along and let the server reject if wrong.
+  const handleAuthConfirm = (password: string) => {
+    setVerifying(true);
     setAuthError(null);
-    if (!pendingAction) return;
+    const target = pendingEnv || "Production";
 
-    // Temporarily verify via a dry-run: just execute and catch auth errors
-    const action = pendingAction;
-    setPendingAction(null);
-    await executeAction(action, password);
+    fetch(`/api/destination?action=sources&env=${target}`, {
+      headers: {
+        "x-auth-password": password
+      }
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({ error: "Invalid password" }));
+          throw new Error(d.error || "Invalid password");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setSources(data);
+        setDestEnv(target);
+        setPrevEnv(target);
+        localStorage.setItem("sct_dest_env", target);
+        setVerifiedPassword(password);
+        setPendingEnv(null);
+        setAuthError(null);
+        setVerifying(false);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setAuthError(err.message || "Invalid authorization password.");
+        setVerifying(false);
+      });
   };
 
   const handleAuthCancel = () => {
-    setPendingAction(null);
+    setPendingEnv(null);
     setAuthError(null);
+    setDestEnv(prevEnv);
+    fetchSources(prevEnv, "");
   };
 
-  // ── Execute the actual API call ─────────────────────────────────────────
-  const executeAction = async (action: PendingAction, adminPassword?: string) => {
+  const handleConsume = async (name: string, isBlob: boolean) => {
     setStatus(null);
-
-    if (action.type === "consume") {
-      await runConsume(action.name, action.isBlob, adminPassword);
-    } else if (action.type === "delete") {
-      await runDelete(action.name, action.isBlob, adminPassword);
-    } else if (action.type === "retry") {
-      await runRetry(adminPassword);
-    }
-  };
-
-  const runConsume = async (name: string, isBlob: boolean, adminPassword?: string) => {
     try {
       const res = await fetch(`/api/destination?action=consume&env=${destEnv}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-auth-password": verifiedPassword
+        },
         body: JSON.stringify({
           [isBlob ? "blobName" : "fileName"]: name,
           database: "master",
-          ...(adminPassword ? { adminPassword } : {}),
         }),
       });
       const data = await res.json();
@@ -175,24 +204,22 @@ export default function SourcesPage() {
         setStatus({ type: "success", message: `Ingestion scheduled successfully for ${name}.` });
         fetchSources(destEnv);
       } else {
-        if (res.status === 403 && destEnv === "Production") {
-          setAuthError(data.error || "Invalid admin password.");
-          setPendingAction({ type: "consume", name, isBlob });
-        } else {
-          throw new Error(data.error || "Failed to trigger ingestion.");
-        }
+        throw new Error(data.error || "Failed to trigger ingestion.");
       }
     } catch (err) {
       setStatus({ type: "error", message: (err as Error).message });
     }
   };
 
-  const runDelete = async (name: string, isBlob: boolean, adminPassword?: string) => {
+  const proceedDelete = async (name: string, isBlob: boolean) => {
+    setStatus(null);
     try {
-      const res = await fetch(
-        `/api/destination?action=${isBlob ? "blob" : "file"}&name=${encodeURIComponent(name)}&env=${destEnv}${adminPassword ? `&adminPassword=${encodeURIComponent(adminPassword)}` : ""}`,
-        { method: "DELETE" }
-      );
+      const res = await fetch(`/api/destination?action=${isBlob ? "blob" : "file"}&name=${encodeURIComponent(name)}&env=${destEnv}`, {
+        method: "DELETE",
+        headers: {
+          "x-auth-password": verifiedPassword
+        }
+      });
       const data = await res.json();
       if (res.ok) {
         setStatus({ type: "success", message: `Successfully deleted ${name}.` });
@@ -205,15 +232,16 @@ export default function SourcesPage() {
     }
   };
 
-  const runRetry = async (adminPassword?: string) => {
+  const handleRetryAll = async () => {
+    setStatus(null);
     try {
       const res = await fetch(`/api/destination?action=retry&env=${destEnv}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          database: "master",
-          ...(adminPassword ? { adminPassword } : {}),
-        }),
+        headers: { 
+          "Content-Type": "application/json",
+          "x-auth-password": verifiedPassword
+        },
+        body: JSON.stringify({ database: "master" }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -240,7 +268,7 @@ export default function SourcesPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => guardAction({ type: "retry" })}
+            onClick={handleRetryAll}
             className="flex items-center gap-2 border border-slate-200/50 bg-white/70 hover:bg-white px-4 py-2 rounded-lg text-sm transition-all text-slate-700 shadow-sm font-semibold"
           >
             Retry Failed Imports
@@ -274,9 +302,9 @@ export default function SourcesPage() {
           </span>
         )}
         {destEnv === "Production" && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200/50 px-2.5 py-1 rounded-full">
+          <span className="ml-auto flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200/50 px-2.5 py-1 rounded-full animate-pulse">
             <Shield className="w-3 h-3" />
-            Admin password required for actions
+            Production — admin authorized
           </span>
         )}
       </div>
@@ -337,7 +365,7 @@ export default function SourcesPage() {
                       <div className="flex items-center gap-2">
                         {!isTransferred && (
                           <button
-                            onClick={() => guardAction({ type: "consume", name: blob.name, isBlob: true })}
+                            onClick={() => handleConsume(blob.name, true)}
                             className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
                           >
                             <Play className="w-3 h-3 fill-current" />
@@ -397,7 +425,7 @@ export default function SourcesPage() {
                       <div className="flex items-center gap-2">
                         {!isTransferred && (
                           <button
-                            onClick={() => guardAction({ type: "consume", name: file.name, isBlob: false })}
+                            onClick={() => handleConsume(file.name, false)}
                             className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
                           >
                             <Play className="w-3 h-3 fill-current" />
@@ -448,7 +476,7 @@ export default function SourcesPage() {
                 onClick={() => {
                   const { name, isBlob } = deleteConfirm;
                   setDeleteConfirm(null);
-                  guardAction({ type: "delete", name, isBlob });
+                  proceedDelete(name, isBlob);
                 }}
                 className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-sm shadow-rose-600/10"
               >
@@ -460,11 +488,12 @@ export default function SourcesPage() {
       )}
 
       {/* Production Auth Modal */}
-      {pendingAction && (
+      {pendingEnv === "Production" && (
         <ProductionAuthModal
           onConfirm={handleAuthConfirm}
           onCancel={handleAuthCancel}
           error={authError}
+          verifying={verifying}
         />
       )}
     </div>

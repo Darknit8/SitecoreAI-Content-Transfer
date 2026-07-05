@@ -50,13 +50,13 @@ export async function POST(req: NextRequest) {
     );
 
     const isProductionEnv = sourceEnv === "Production" || destEnv === "Production";
-    const requiresAdmin = hasExpensive || isProductionEnv;
+    const requiresAdmin = isProductionEnv;
 
     if (requiresAdmin) {
       const adminPassword = process.env.SCT_ADMIN_PASSWORD || "Admin123!";
       if (authPassword !== adminPassword) {
         return NextResponse.json(
-          { error: "Invalid authorization password. Access denied for high-risk operations." },
+          { error: "Invalid authorization password. Access denied for Production environment." },
           { status: 403 }
         );
       }

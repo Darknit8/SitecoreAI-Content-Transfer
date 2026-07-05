@@ -9,10 +9,12 @@ function ProductionAuthModal({
   onConfirm,
   onCancel,
   error,
+  verifying,
 }: {
   onConfirm: (password: string) => void;
   onCancel: () => void;
   error: string | null;
+  verifying: boolean;
 }) {
   const [password, setPassword] = useState("");
 
@@ -26,7 +28,7 @@ function ProductionAuthModal({
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-slate-900">Production Authorization Required</h3>
             <p className="text-sm text-slate-500">
-              You are switching to the <strong className="text-rose-600">Production</strong> environment. An admin password is required to view production data.
+              An admin password is required to authorize read/write access to the <strong className="text-rose-600">Production</strong> environment.
             </p>
           </div>
         </div>
@@ -44,26 +46,28 @@ function ProductionAuthModal({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && password && onConfirm(password)}
+            onKeyDown={(e) => e.key === "Enter" && password && !verifying && onConfirm(password)}
             placeholder="Enter admin password"
             className="w-full bg-white border border-slate-200 focus:border-rose-400 focus:ring-1 focus:ring-rose-400 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none transition-all shadow-sm"
             autoFocus
+            disabled={verifying}
           />
         </div>
 
         <div className="flex gap-3 justify-end pt-2 border-t border-slate-100">
           <button
             onClick={onCancel}
+            disabled={verifying}
             className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
           >
             Cancel
           </button>
           <button
             onClick={() => onConfirm(password)}
-            disabled={!password}
+            disabled={!password || verifying}
             className="px-5 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white transition-all shadow-sm"
           >
-            Authorize
+            {verifying ? "Verifying..." : "Authorize"}
           </button>
         </div>
       </div>
@@ -84,12 +88,17 @@ export default function HistoryPage() {
   const [pendingEnv, setPendingEnv] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [prevEnv, setPrevEnv] = useState("QA");
-  const [authVerified, setAuthVerified] = useState(false);
+  const [verifiedPassword, setVerifiedPassword] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
-  const fetchHistory = (pageNumber: number, envName = destEnv) => {
+  const fetchHistory = (pageNumber: number, envName = destEnv, password = verifiedPassword) => {
     setLoading(true);
     setErrorMessage(null);
-    fetch(`/api/destination?action=history&page=${pageNumber}&size=15&env=${envName}`)
+    fetch(`/api/destination?action=history&page=${pageNumber}&size=15&env=${envName}`, {
+      headers: {
+        "x-auth-password": password
+      }
+    })
       .then((res) => {
         if (!res.ok) {
           return res.json().then(d => { throw new Error(d.error || "Failed to load history") });
@@ -117,42 +126,66 @@ export default function HistoryPage() {
       .then((data) => setEnvironments(data))
       .catch(() => { });
 
-    fetchHistory(1, savedDest);
+    if (savedDest === "Production") {
+      setPendingEnv("Production");
+    } else {
+      fetchHistory(1, savedDest);
+    }
   }, []);
 
   const handleEnvChange = (value: string) => {
     if (value === "Production") {
-      // Gate: ask for password before switching
       setPrevEnv(destEnv);
       setPendingEnv(value);
       setAuthError(null);
     } else {
       setDestEnv(value);
+      setVerifiedPassword("");
       localStorage.setItem("sct_dest_env", value);
-      fetchHistory(1, value);
+      fetchHistory(1, value, "");
     }
   };
 
   const handleAuthConfirm = (password: string) => {
-    // Validate locally against the env-var hint; real guard is server-side on
-    // any actual data-mutation call. For history (read-only) we just verify
-    // the password matches the configured admin password pattern.
-    const adminPassword = "Admin123!"; // fallback same as server default
-    // We proceed and let the server error if it's wrong; for UX we allow entry.
-    // Apply the pending env change
-    if (pendingEnv) {
-      setDestEnv(pendingEnv);
-      localStorage.setItem("sct_dest_env", pendingEnv);
-      fetchHistory(1, pendingEnv);
-      setPendingEnv(null);
-      setAuthError(null);
-    }
+    setVerifying(true);
+    setAuthError(null);
+    const target = pendingEnv || "Production";
+
+    fetch(`/api/destination?action=history&page=1&size=15&env=${target}`, {
+      headers: {
+        "x-auth-password": password
+      }
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({ error: "Invalid password" }));
+          throw new Error(d.error || "Invalid password");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setHistoryData(data);
+        setPage(1);
+        setDestEnv(target);
+        setPrevEnv(target);
+        localStorage.setItem("sct_dest_env", target);
+        setVerifiedPassword(password);
+        setPendingEnv(null);
+        setAuthError(null);
+        setVerifying(false);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setAuthError(err.message || "Invalid authorization password.");
+        setVerifying(false);
+      });
   };
 
   const handleAuthCancel = () => {
     setPendingEnv(null);
     setAuthError(null);
-    // Revert dropdown to previous value (it was already changed optimistically)
+    setDestEnv(prevEnv);
+    fetchHistory(1, prevEnv, "");
   };
 
   const totalPages = historyData ? Math.ceil(historyData.totalCount / 15) || 1 : 1;
@@ -198,7 +231,7 @@ export default function HistoryPage() {
           </span>
         )}
         {destEnv === "Production" && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200/50 px-2.5 py-1 rounded-full">
+          <span className="ml-auto flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200/50 px-2.5 py-1 rounded-full animate-pulse">
             <Shield className="w-3 h-3" />
             Production — admin authorized
           </span>
@@ -255,12 +288,12 @@ export default function HistoryPage() {
                     <td className="px-6 py-4 text-slate-500">{rec.databaseName}</td>
                     <td className="px-6 py-4">
                       {rec.state === "Completed" ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-semibold bg-emerald-55 border border-emerald-250/20 px-2 py-0.5 rounded-full">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                           Success
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-rose-700 font-semibold bg-rose-50 border border-rose-200/50 px-2 py-0.5 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-xs text-rose-700 font-semibold bg-rose-55 border border-rose-250/20 px-2 py-0.5 rounded-full">
                           <XCircle className="w-3.5 h-3.5 text-rose-500" />
                           Failed
                         </span>
@@ -309,6 +342,7 @@ export default function HistoryPage() {
           onConfirm={handleAuthConfirm}
           onCancel={handleAuthCancel}
           error={authError}
+          verifying={verifying}
         />
       )}
     </div>

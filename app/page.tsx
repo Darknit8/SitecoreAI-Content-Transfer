@@ -78,7 +78,7 @@ export default function DashboardOverview() {
             setRuns(sorted);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }, 5000);
 
     return () => clearInterval(interval);
@@ -107,10 +107,10 @@ export default function DashboardOverview() {
 
       {/* Main Content Layout */}
       <div className="grid lg:grid-cols-3 gap-8">
-        
+
         {/* Left Column (Runs + About) */}
         <div className="lg:col-span-2 space-y-8">
-          
+
           {/* Active & Recent Migration Pipelines */}
           <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200/50 pb-3">
@@ -202,7 +202,7 @@ export default function DashboardOverview() {
 
             <p className="text-sm text-slate-600 leading-relaxed">
               This console is a <strong className="text-slate-800">Next.js 16 web application</strong> built to orchestrate Sitecore content migrations between multiple environments (Dev, QA, UAT, Production) using the{" "}
-              <strong className="text-slate-800">Sitecore Content Transfer API</strong>. It manages the full end-to-end pipeline — from exporting chunked <code className="bg-slate-100 px-1 py-0.5 rounded text-indigo-700 text-xs font-mono">.raif</code> packages on the source, uploading them to the destination, and triggering asynchronous ingestion via the Item Transfer REST API.
+              <strong className="text-slate-800">Sitecore Content Transfer API </strong> and <strong className="text-slate-800">Item Transfer API</strong>. It manages the full end-to-end pipeline — from dividing items into chunks on the source, uploading them to the destination, converting them to <code className="bg-slate-100 px-1 py-0.5 rounded text-indigo-700 text-xs font-mono">.raif</code> and triggering asynchronous ingestion.
             </p>
 
             {/* Feature Pills */}
@@ -241,7 +241,7 @@ export default function DashboardOverview() {
 
         {/* Right Column (Quick Reference Only) */}
         <div>
-          
+
           {/* Quick Reference & API Links */}
           <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
             <div className="flex items-center gap-3 border-b border-slate-200/50 pb-4">

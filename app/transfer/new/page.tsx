@@ -464,6 +464,7 @@ export default function NewTransferPage() {
                     type="password"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && authPassword && !loading && executeTransfer()}
                     placeholder="Enter security password"
                     className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none transition-all shadow-sm"
                     required

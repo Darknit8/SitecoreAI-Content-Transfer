@@ -90,6 +90,18 @@ export default function SourcesPage() {
   const [prevEnv, setPrevEnv] = useState("QA");
   const [verifiedPassword, setVerifiedPassword] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [consumeConfirm, setConsumeConfirm] = useState<{ name: string; isBlob: boolean } | null>(null);
+  const [consumePassword, setConsumePassword] = useState("");
+  const [consumeError, setConsumeError] = useState<string | null>(null);
+  const [consuming, setConsuming] = useState(false);
+  const [retryConfirm, setRetryConfirm] = useState(false);
+  const [retryPassword, setRetryPassword] = useState("");
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
 
   const fetchSources = (envName = destEnv, password = verifiedPassword) => {
     setLoading(true);
@@ -185,14 +197,15 @@ export default function SourcesPage() {
     fetchSources(prevEnv, "");
   };
 
-  const handleConsume = async (name: string, isBlob: boolean) => {
-    setStatus(null);
+  const handleConsume = async (name: string, isBlob: boolean, passwordToUse: string) => {
+    setConsumeError(null);
+    setConsuming(true);
     try {
       const res = await fetch(`/api/destination?action=consume&env=${destEnv}`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "x-auth-password": verifiedPassword
+          "x-auth-password": passwordToUse
         },
         body: JSON.stringify({
           [isBlob ? "blobName" : "fileName"]: name,
@@ -202,73 +215,99 @@ export default function SourcesPage() {
       const data = await res.json();
       if (res.ok) {
         setStatus({ type: "success", message: `Ingestion scheduled successfully for ${name}.` });
-        fetchSources(destEnv);
+        if (destEnv === "Production") {
+          setVerifiedPassword(passwordToUse);
+        }
+        setConsumeConfirm(null);
+        setConsumePassword("");
+        fetchSources(destEnv, passwordToUse);
       } else {
         throw new Error(data.error || "Failed to trigger ingestion.");
       }
     } catch (err) {
-      setStatus({ type: "error", message: (err as Error).message });
+      setConsumeError((err as Error).message);
+    } finally {
+      setConsuming(false);
     }
   };
 
-  const proceedDelete = async (name: string, isBlob: boolean) => {
-    setStatus(null);
+  const proceedDelete = async (name: string, isBlob: boolean, passwordToUse: string) => {
+    setDeleteError(null);
+    setDeleting(true);
     try {
       const res = await fetch(`/api/destination?action=${isBlob ? "blob" : "file"}&name=${encodeURIComponent(name)}&env=${destEnv}`, {
         method: "DELETE",
         headers: {
-          "x-auth-password": verifiedPassword
+          "x-auth-password": passwordToUse
         }
       });
       const data = await res.json();
       if (res.ok) {
         setStatus({ type: "success", message: `Successfully deleted ${name}.` });
-        fetchSources(destEnv);
+        if (destEnv === "Production") {
+          setVerifiedPassword(passwordToUse);
+        }
+        setDeleteConfirm(null);
+        setDeletePassword("");
+        fetchSources(destEnv, passwordToUse);
       } else {
         throw new Error(data.error || "Failed to delete source.");
       }
     } catch (err) {
-      setStatus({ type: "error", message: (err as Error).message });
+      setDeleteError((err as Error).message);
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const handleRetryAll = async () => {
-    setStatus(null);
+  const handleRetryAll = async (passwordToUse: string) => {
+    setRetryError(null);
+    setRetrying(true);
     try {
       const res = await fetch(`/api/destination?action=retry&env=${destEnv}`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "x-auth-password": verifiedPassword
+          "x-auth-password": passwordToUse
         },
         body: JSON.stringify({ database: "master" }),
       });
       const data = await res.json();
       if (res.ok) {
         setStatus({ type: "success", message: `Retry triggered: ${data.message || "scheduled."}` });
+        if (destEnv === "Production") {
+          setVerifiedPassword(passwordToUse);
+        }
+        setRetryConfirm(false);
+        setRetryPassword("");
       } else {
         throw new Error(data.error || "Failed to trigger retry.");
       }
     } catch (err) {
-      setStatus({ type: "error", message: (err as Error).message });
+      setRetryError((err as Error).message);
+    } finally {
+      setRetrying(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
+        <div className="space-y-1">
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800">
             Blob &amp; File Sources
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 text-sm">
             Browse and consume transfer files (.raif) currently located on the destination filesystem or Azure Blob storage.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button
-            onClick={handleRetryAll}
+            onClick={() => {
+              setRetryConfirm(true);
+              setRetryPassword(verifiedPassword || "");
+            }}
             className="flex items-center gap-2 border border-slate-200/50 bg-white/70 hover:bg-white px-4 py-2 rounded-lg text-sm transition-all text-slate-700 shadow-sm font-semibold"
           >
             Retry Failed Imports
@@ -367,7 +406,10 @@ export default function SourcesPage() {
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         {!isTransferred && (
                           <button
-                            onClick={() => handleConsume(blob.name, true)}
+                            onClick={() => {
+                              setConsumeConfirm({ name: blob.name, isBlob: true });
+                              setConsumePassword(verifiedPassword || "");
+                            }}
                             className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
                           >
                             <Play className="w-3 h-3 fill-current" />
@@ -375,7 +417,10 @@ export default function SourcesPage() {
                           </button>
                         )}
                         <button
-                          onClick={() => setDeleteConfirm({ name: blob.name, isBlob: true })}
+                          onClick={() => {
+                            setDeleteConfirm({ name: blob.name, isBlob: true });
+                            setDeletePassword(verifiedPassword || "");
+                          }}
                           className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
                           title="Delete Source"
                         >
@@ -429,7 +474,10 @@ export default function SourcesPage() {
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         {!isTransferred && (
                           <button
-                            onClick={() => handleConsume(file.name, false)}
+                            onClick={() => {
+                              setConsumeConfirm({ name: file.name, isBlob: false });
+                              setConsumePassword(verifiedPassword || "");
+                            }}
                             className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 hover:opacity-95 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm shadow-indigo-500/10"
                           >
                             <Play className="w-3 h-3 fill-current" />
@@ -437,8 +485,11 @@ export default function SourcesPage() {
                           </button>
                         )}
                         <button
-                          onClick={() => setDeleteConfirm({ name: file.name, isBlob: false })}
-                          className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shadow-sm"
+                          onClick={() => {
+                            setDeleteConfirm({ name: file.name, isBlob: false });
+                            setDeletePassword(verifiedPassword || "");
+                          }}
+                          className="flex items-center justify-center p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-650 hover:bg-rose-100 transition-colors shadow-sm"
                           title="Delete Source"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -456,7 +507,16 @@ export default function SourcesPage() {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (deletePassword && !deleting) {
+                const { name, isBlob } = deleteConfirm;
+                proceedDelete(name, isBlob, deletePassword);
+              }
+            }}
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform"
+          >
             <div className="flex items-start gap-4">
               <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
                 <Trash2 className="w-6 h-6" />
@@ -469,25 +529,211 @@ export default function SourcesPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end">
+            {/* Error Message inside popup */}
+            {deleteError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold animate-pulse">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            {/* Password input for validation */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {destEnv === "Production" ? "Admin Authorization Password" : "Standard Authorization Password"}
+              </label>
+              <input
+                type="password"
+                placeholder="Enter password to authorize deletion"
+                value={deletePassword}
+                onChange={(e) => {
+                  setDeletePassword(e.target.value);
+                  setDeleteError(null);
+                }}
+                disabled={deleting}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-rose-550 focus:border-rose-550 outline-none transition-all font-mono"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
               <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
+                type="button"
+                onClick={() => {
+                  setDeleteConfirm(null);
+                  setDeletePassword("");
+                  setDeleteError(null);
+                }}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  const { name, isBlob } = deleteConfirm;
-                  setDeleteConfirm(null);
-                  proceedDelete(name, isBlob);
-                }}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-sm shadow-rose-600/10"
+                type="submit"
+                disabled={!deletePassword || deleting}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-rose-600/10 flex items-center gap-1.5"
               >
-                Confirm Delete
+                {deleting && <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-white"></div>}
+                {deleting ? "Deleting..." : "Confirm Delete"}
               </button>
             </div>
-          </div>
+          </form>
+        </div>
+      )}
+
+      {/* Consume Confirmation Modal */}
+      {consumeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (consumePassword && !consuming) {
+                const { name, isBlob } = consumeConfirm;
+                handleConsume(name, isBlob, consumePassword);
+              }
+            }}
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform"
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-indigo-50 text-indigo-650 rounded-xl">
+                <Database className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900">Ingest Source Package</h3>
+                <p className="text-sm text-slate-500">
+                  Are you sure you want to trigger database ingestion for the {consumeConfirm.isBlob ? "blob" : "file"} source <strong className="text-slate-800 break-all">"{consumeConfirm.name}"</strong>? This will install items into the destination database.
+                </p>
+              </div>
+            </div>
+
+            {/* Error Message inside popup */}
+            {consumeError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold animate-pulse">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{consumeError}</span>
+              </div>
+            )}
+
+            {/* Password input for validation */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {destEnv === "Production" ? "Admin Authorization Password" : "Standard Authorization Password"}
+              </label>
+              <input
+                type="password"
+                placeholder="Enter password to authorize ingestion"
+                value={consumePassword}
+                onChange={(e) => {
+                  setConsumePassword(e.target.value);
+                  setConsumeError(null);
+                }}
+                disabled={consuming}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConsumeConfirm(null);
+                  setConsumePassword("");
+                  setConsumeError(null);
+                }}
+                disabled={consuming}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!consumePassword || consuming}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 text-white transition-all shadow-sm shadow-indigo-500/10 flex items-center gap-1.5"
+              >
+                {consuming && <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-white"></div>}
+                {consuming ? "Ingesting..." : "Confirm Ingest"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Retry Confirmation Modal */}
+      {retryConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (retryPassword && !retrying) {
+                handleRetryAll(retryPassword);
+              }
+            }}
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/50 space-y-6 transform scale-100 transition-transform"
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-indigo-50 text-indigo-650 rounded-xl">
+                <RefreshCw className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900">Retry Failed Imports</h3>
+                <p className="text-sm text-slate-500">
+                  Are you sure you want to retry all failed import operations for the destination database <strong className="text-slate-800">"master"</strong>?
+                </p>
+              </div>
+            </div>
+
+            {/* Error Message inside popup */}
+            {retryError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold animate-pulse">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{retryError}</span>
+              </div>
+            )}
+
+            {/* Password input for validation */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {destEnv === "Production" ? "Admin Authorization Password" : "Standard Authorization Password"}
+              </label>
+              <input
+                type="password"
+                placeholder="Enter password to authorize retry"
+                value={retryPassword}
+                onChange={(e) => {
+                  setRetryPassword(e.target.value);
+                  setRetryError(null);
+                }}
+                disabled={retrying}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRetryConfirm(false);
+                  setRetryPassword("");
+                  setRetryError(null);
+                }}
+                disabled={retrying}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!retryPassword || retrying}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 text-white transition-all shadow-sm shadow-indigo-500/10 flex items-center gap-1.5"
+              >
+                {retrying && <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-white"></div>}
+                {retrying ? "Retrying..." : "Confirm Retry"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

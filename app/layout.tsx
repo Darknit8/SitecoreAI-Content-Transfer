@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import Sidebar from "./components/Sidebar";
 import { Menu } from "lucide-react";
 import "./globals.css";
@@ -21,12 +22,12 @@ export default function RootLayout({
       <body className="flex flex-col min-h-screen mesh-bg text-slate-800 lg:flex-row">
         {/* Mobile Navbar Header */}
         <header className="h-16 px-4 bg-white/70 backdrop-blur-md border-b border-slate-200/50 flex items-center justify-between sticky top-0 z-30 lg:hidden w-full">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-85 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs tracking-wider shadow-md shadow-indigo-500/20">
               SCT
             </div>
             <span className="font-bold tracking-tight text-sm text-slate-800">SitecoreAI Console</span>
-          </div>
+          </Link>
 
           <button
             onClick={() => setIsSidebarOpen(true)}

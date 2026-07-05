@@ -29,7 +29,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     >
       {/* Logo Area */}
       <div className="h-16 px-6 border-b border-slate-200/50 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <Link href="/" onClick={onClose} className="flex items-center gap-3 hover:opacity-85 transition-opacity">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs tracking-wider shadow-md shadow-indigo-500/20">
             SCT
           </div>
@@ -37,7 +37,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="font-bold tracking-tight text-sm text-slate-800">SitecoreAI</span>
             <span className="block text-xs text-slate-400">Content Transfer</span>
           </div>
-        </div>
+        </Link>
 
         {/* Mobile Close Button */}
         <button

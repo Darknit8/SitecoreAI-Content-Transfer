@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  Terminal,
 } from "lucide-react";
 
 const apiLinks = [
@@ -173,7 +174,7 @@ export default function DashboardOverview() {
                         </span>
                       )}
                       {run.state === "completed" && (
-                        <span className="flex items-center gap-1 text-xs text-emerald-700 font-bold bg-emerald-55 border border-emerald-250/20 px-2.5 py-1 rounded-full">
+                        <span className="flex items-center gap-1 text-xs text-emerald-700 font-bold bg-emerald-55 border border-emerald-200 px-2 py-0.5 rounded-full">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                           Success
                         </span>
@@ -243,34 +244,52 @@ export default function DashboardOverview() {
         <div>
 
           {/* Quick Reference & API Links */}
-          <div className="glow-card p-6 rounded-xl bg-white/80 space-y-4">
+          <div className="glow-card p-6 rounded-xl bg-white/80 space-y-6">
             <div className="flex items-center gap-3 border-b border-slate-200/50 pb-4">
               <div className="p-2 bg-cyan-50 rounded-lg">
                 <BookOpen className="w-5 h-5 text-cyan-500" />
               </div>
               <h2 className="text-lg font-bold text-slate-800">Quick Reference</h2>
             </div>
+
+            {/* Section 1: Local Setup */}
             <div className="space-y-2">
-              {apiLinks.map(({ label, href, description }) => (
-                <a
-                  key={href}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-200/50 hover:border-cyan-200 hover:bg-cyan-50/30 transition-all group"
-                >
-                  <div>
-                    <span className="block text-xs font-bold text-slate-700 group-hover:text-cyan-700 transition-colors leading-snug">{label}</span>
-                    <span className="block text-[10px] text-slate-400 mt-0.5 leading-snug">{description}</span>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-cyan-500 transition-colors flex-shrink-0 mt-0.5" />
-                </a>
-              ))}
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Local Setup</span>
+              <a
+                href="/settings"
+                className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-200/50 hover:border-indigo-200 hover:bg-indigo-50/30 bg-indigo-50/10 transition-all group"
+              >
+                <div>
+                  <span className="block text-xs font-bold text-slate-700 group-hover:text-indigo-700 font-semibold transition-colors leading-snug">Local Environment Setup Guide</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5 leading-snug">Step-by-step instructions to clone, run, and configure the application</span>
+                </div>
+                <Terminal className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors flex-shrink-0 mt-0.5" />
+              </a>
+            </div>
+
+            {/* Section 2: External API & Docs */}
+            <div className="space-y-2">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">API References & Docs</span>
+              <div className="space-y-2">
+                {apiLinks.map(({ label, href, description }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-200/50 hover:border-cyan-200 hover:bg-cyan-50/30 transition-all group"
+                  >
+                    <div>
+                      <span className="block text-xs font-bold text-slate-700 group-hover:text-cyan-700 transition-colors leading-snug">{label}</span>
+                      <span className="block text-[10px] text-slate-400 mt-0.5 leading-snug">{description}</span>
+                    </div>
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-cyan-500 transition-colors flex-shrink-0 mt-0.5" />
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
-
         </div>
-
       </div>
     </div>
   );

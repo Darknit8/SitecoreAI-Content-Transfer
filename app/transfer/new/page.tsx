@@ -289,14 +289,14 @@ export default function NewTransferPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-550 uppercase">Conflict Strategy</label>
+            <label className="block text-xs font-semibold text-slate-555 uppercase">Conflict Strategy</label>
             <CustomSelect
               value={mergeStrategy}
               onChange={setMergeStrategy}
               options={[
                 { value: "OverrideExistingItem", label: "Override Existing Item", sublabel: "Destination item is replaced" },
                 { value: "KeepExistingItem", label: "Keep Existing Item", sublabel: "Source item is ignored" },
-                { value: "LatestWin", label: "Latest Modified Wins", sublabel: "Most recent modification kept" },
+                // { value: "LatestWin", label: "Latest Modified Wins", sublabel: "Most recent modification kept" },
                 { value: "OverrideExistingTree", label: "Override Existing Tree", sublabel: "Replace entire item tree" },
               ]}
             />
@@ -383,7 +383,7 @@ export default function NewTransferPage() {
                       <span className={`block font-medium ${mergeStrategy === "OverrideExistingItem" || mergeStrategy === "OverrideExistingTree" ? "text-rose-600 font-bold" : "text-slate-800"}`}>
                         {mergeStrategy === "OverrideExistingItem" && "Override Existing Item"}
                         {mergeStrategy === "KeepExistingItem" && "Keep Existing Item"}
-                        {mergeStrategy === "LatestWin" && "Latest Modified Wins"}
+                        {/* {mergeStrategy === "LatestWin" && "Latest Modified Wins"} */}
                         {mergeStrategy === "OverrideExistingTree" && "Override Existing Tree"}
                       </span>
                     </div>

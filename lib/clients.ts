@@ -135,7 +135,7 @@ export class ContentTransferClient {
     const isMedia = isMediaMatch ? isMediaMatch[1].toLowerCase() === "true" : false;
 
     const arrayBuffer = await response.arrayBuffer();
-    const stream = Buffer.from(arrayBuffer);
+    const stream = Buffer.from(arrayBuffer.slice(0));
 
     return {
       stream,

@@ -167,6 +167,9 @@ export class TransferOrchestrator {
     } catch (err) {
       const error = err as Error;
       let message = error.message;
+      if (error && typeof error === "object" && "responseBody" in error && error.responseBody) {
+        message += ` (response: ${error.responseBody})`;
+      }
       if (error.cause) {
         message += ` (cause: ${(error.cause as Error).message || error.cause})`;
       }
@@ -302,6 +305,9 @@ export class TransferOrchestrator {
     } catch (err) {
       const error = err as Error;
       let message = error.message;
+      if (error && typeof error === "object" && "responseBody" in error && error.responseBody) {
+        message += ` (response: ${error.responseBody})`;
+      }
       if (error.cause) {
         message += ` (cause: ${(error.cause as Error).message || error.cause})`;
       }

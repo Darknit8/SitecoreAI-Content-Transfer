@@ -18,6 +18,7 @@ export default function RootLayout({
       <head>
         <title>Sitecore Content Transfer Console</title>
         <meta name="description" content="Web dashboard for managing and orchestrating SitecoreAI migrations" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
       </head>
       <body className="flex flex-col min-h-screen mesh-bg text-slate-800 lg:flex-row">
         {/* Mobile Navbar Header */}

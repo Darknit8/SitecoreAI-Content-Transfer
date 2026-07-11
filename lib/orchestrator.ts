@@ -166,8 +166,12 @@ export class TransferOrchestrator {
       return transferId;
     } catch (err) {
       const error = err as Error;
+      let message = error.message;
+      if (error.cause) {
+        message += ` (cause: ${(error.cause as Error).message || error.cause})`;
+      }
       this.emit(this.createEvent("transfer:error", transferId, {
-        error: { message: error.message },
+        error: { message },
         phase: "execution"
       }));
       throw error;
@@ -297,8 +301,12 @@ export class TransferOrchestrator {
       return transferId;
     } catch (err) {
       const error = err as Error;
+      let message = error.message;
+      if (error.cause) {
+        message += ` (cause: ${(error.cause as Error).message || error.cause})`;
+      }
       this.emit(this.createEvent("transfer:error", transferId, {
-        error: { message: error.message },
+        error: { message },
         phase: "mock-simulation"
       }));
       throw error;

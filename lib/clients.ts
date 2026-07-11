@@ -134,13 +134,8 @@ export class ContentTransferClient {
     const itemsSkipped = itemsSkippedMatch ? parseInt(itemsSkippedMatch[1], 10) : 0;
     const isMedia = isMediaMatch ? isMediaMatch[1].toLowerCase() === "true" : false;
 
-    let stream: ReadableStream<Uint8Array> | Buffer;
-    if (response.body) {
-      stream = response.body;
-    } else {
-      const arrayBuffer = await response.arrayBuffer();
-      stream = Buffer.from(arrayBuffer);
-    }
+    const arrayBuffer = await response.arrayBuffer();
+    const stream = Buffer.from(arrayBuffer);
 
     return {
       stream,

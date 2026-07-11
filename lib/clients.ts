@@ -13,6 +13,19 @@ import {
 } from "./types";
 import { mockHistory, deleteMockHistoryRecord } from "./store";
 
+function cloneBody(body: any): any {
+  if (!body) return body;
+  if (Buffer.isBuffer(body)) {
+    return Buffer.from(body);
+  }
+  if (body instanceof Uint8Array) {
+    return body.slice(0);
+  }
+  if (body instanceof ArrayBuffer) {
+    return body.slice(0);
+  }
+  return body;
+}
 
 // ============================================================================
 // Content Transfer API Client
@@ -35,12 +48,22 @@ export class ContentTransferClient {
     headers.set("Authorization", `Bearer ${token}`);
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
 
-    let response = await fetch(url, { ...options, headers });
+    const fetchOptions = { ...options };
+    if (options.body) {
+      fetchOptions.body = cloneBody(options.body);
+    }
+
+    let response = await fetch(url, { ...fetchOptions, headers });
     if (response.status === 401) {
       this.auth.clearCache();
       token = await this.auth.getToken();
       headers.set("Authorization", `Bearer ${token}`);
-      response = await fetch(url, { ...options, headers });
+
+      const retryOptions = { ...options };
+      if (options.body) {
+        retryOptions.body = cloneBody(options.body);
+      }
+      response = await fetch(url, { ...retryOptions, headers });
     }
     return response;
   }
@@ -229,12 +252,22 @@ export class ItemTransferClient {
     headers.set("Authorization", `Bearer ${token}`);
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
 
-    let response = await fetch(url, { ...options, headers });
+    const fetchOptions = { ...options };
+    if (options.body) {
+      fetchOptions.body = cloneBody(options.body);
+    }
+
+    let response = await fetch(url, { ...fetchOptions, headers });
     if (response.status === 401) {
       this.auth.clearCache();
       token = await this.auth.getToken();
       headers.set("Authorization", `Bearer ${token}`);
-      response = await fetch(url, { ...options, headers });
+
+      const retryOptions = { ...options };
+      if (options.body) {
+        retryOptions.body = cloneBody(options.body);
+      }
+      response = await fetch(url, { ...retryOptions, headers });
     }
     return response;
   }
